@@ -1,6 +1,8 @@
 package components
 
 import (
+	"ssh-keeper/internal/ui/styles"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -65,7 +67,7 @@ func (bf *BoolField) Update(msg tea.Msg) (*BoolField, tea.Cmd) {
 				bf.value = false
 			case "right", "l":
 				bf.value = true
-			case "space", "enter":
+			case "space":
 				bf.Toggle()
 			}
 		}
@@ -105,21 +107,21 @@ func (bf *BoolField) View() string {
 	if bf.focused {
 		// Активное поле - оранжевая рамка
 		style = baseStyle.
-			BorderForeground(lipgloss.Color("#FFA500")) // Оранжевый
+			BorderForeground(lipgloss.Color(styles.ColorWarning)) // Оранжевый
 	} else {
 		// Неактивное поле - обычная рамка
 		style = baseStyle.
-			BorderForeground(lipgloss.Color("#4A4A4A")) // Серый
+			BorderForeground(lipgloss.Color(styles.ColorGray)) // Серый
 	}
 
 	// Стили для символа
 	symbolStyle := lipgloss.NewStyle()
 	if bf.value {
 		// Зеленый цвет для закрашенного кружка
-		symbolStyle = symbolStyle.Foreground(lipgloss.Color("#51CF66")) // Зеленый
+		symbolStyle = symbolStyle.Foreground(lipgloss.Color(styles.ColorSuccess)) // Зеленый
 	} else {
 		// Серый цвет для пустого кружка
-		symbolStyle = symbolStyle.Foreground(lipgloss.Color("#808080")) // Серый
+		symbolStyle = symbolStyle.Foreground(lipgloss.Color(styles.ColorMuted)) // Серый
 	}
 
 	// Объединяем символ и текст

@@ -96,7 +96,7 @@ func (bs *BaseScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return bs, nil
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "q", "ctrl+c":
+		case "ctrl+c":
 			return bs, tea.Quit
 		}
 	}

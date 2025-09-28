@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"ssh-keeper/internal/services"
 	"ssh-keeper/internal/ui"
-	"ssh-keeper/internal/ui/items"
+	"ssh-keeper/internal/ui/components"
 	"ssh-keeper/internal/ui/styles"
 	"strings"
 
@@ -34,7 +34,7 @@ func NewConnectionsScreen() *ConnectionsScreen {
 	// Создаем элементы списка
 	var listItems []list.Item
 	for _, conn := range connections {
-		listItems = append(listItems, items.NewConnectionItem(conn))
+		listItems = append(listItems, components.NewConnectionItem(conn))
 	}
 
 	// Создаем список (компактный, без фильтрации)
@@ -183,7 +183,7 @@ func (cs *ConnectionsScreen) filterList() {
 	// Фильтруем элементы
 	var filteredItems []list.Item
 	for _, item := range cs.allItems {
-		if connItem, ok := item.(items.ConnectionItem); ok {
+		if connItem, ok := item.(components.ConnectionItem); ok {
 			// Поиск по названию, хосту и пользователю
 			if strings.Contains(strings.ToLower(connItem.Title()), strings.ToLower(query)) ||
 				strings.Contains(strings.ToLower(connItem.Description()), strings.ToLower(query)) ||
@@ -199,7 +199,7 @@ func (cs *ConnectionsScreen) filterList() {
 // connectToSelected подключается к выбранному серверу
 func (cs *ConnectionsScreen) connectToSelected() {
 	selectedItem := cs.list.SelectedItem()
-	if item, ok := selectedItem.(items.ConnectionItem); ok {
+	if item, ok := selectedItem.(components.ConnectionItem); ok {
 		conn := item.GetConnection()
 		// TODO: Реализовать подключение к SSH
 		// Пока просто показываем информацию

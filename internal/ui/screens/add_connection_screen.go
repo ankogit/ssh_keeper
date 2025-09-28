@@ -8,11 +8,13 @@ import (
 	"ssh-keeper/internal/ui/components"
 	"ssh-keeper/internal/ui/styles"
 	"strconv"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/google/uuid"
 )
 
 // AddConnectionScreen представляет экран добавления нового подключения
@@ -30,13 +32,8 @@ type AddConnectionScreen struct {
 	usePassword   *components.BoolField // Булевое поле для выбора аутентификации
 	errors        map[string]string
 
-	// Состояние формы
-	currentField int
-	fields       []textinput.Model
-
-	// Условные поля
-	showPasswordField bool
-	showKeyField      bool
+	// Менеджер формы
+	formManager *components.FormManager
 
 	// Прокрутка
 	viewport viewport.Model
@@ -81,24 +78,90 @@ func NewAddConnectionScreen() *AddConnectionScreen {
 	passwordInput.Width = 50
 	passwordInput.EchoMode = textinput.EchoPassword
 
-	// Создаем массив полей для удобного переключения
-	fields := []textinput.Model{
-		nameInput,
-		hostInput,
-		portInput,
-		userInput,
-		keyPathInput,
-		passwordInput,
-	}
+	// Поля созданы выше
 
 	// Создаем булевое поле
 	usePasswordField := components.NewBoolField("Использовать пароль")
 	usePasswordField.SetWidth(20)
 
+	// Создаем менеджер формы
+	formManager := components.NewFormManager()
+
+	// Добавляем поля в форму
+	formManager.AddField(components.FieldConfig{
+		Name:        components.FieldNameName,
+		Label:       "Название",
+		Required:    true,
+		Width:       50,
+		MaxLength:   50,
+		Placeholder: "Название подключения",
+		FieldType:   components.FieldTypeText,
+	})
+
+	formManager.AddField(components.FieldConfig{
+		Name:        components.FieldNameHost,
+		Label:       "Хост",
+		Required:    true,
+		Width:       50,
+		MaxLength:   100,
+		Placeholder: "IP адрес или домен",
+		FieldType:   components.FieldTypeText,
+	})
+
+	formManager.AddField(components.FieldConfig{
+		Name:        components.FieldNamePort,
+		Label:       "Порт",
+		Required:    false,
+		Width:       15,
+		MaxLength:   5,
+		Placeholder: "22",
+		FieldType:   components.FieldTypePort,
+	})
+
+	formManager.AddField(components.FieldConfig{
+		Name:        components.FieldNameUser,
+		Label:       "Пользователь",
+		Required:    true,
+		Width:       50,
+		MaxLength:   50,
+		Placeholder: "Имя пользователя",
+		FieldType:   components.FieldTypeText,
+	})
+
+	formManager.AddField(components.FieldConfig{
+		Name:        components.FieldNameAuth,
+		Label:       "Использовать пароль",
+		Required:    true,
+		Width:       20,
+		Placeholder: "",
+		FieldType:   components.FieldTypeBool,
+	})
+
+	formManager.AddField(components.FieldConfig{
+		Name:        components.FieldNamePassword,
+		Label:       "Пароль",
+		Required:    false,
+		Width:       50,
+		MaxLength:   100,
+		Placeholder: "Пароль (если нет ключа)",
+		FieldType:   components.FieldTypePassword,
+	})
+
+	formManager.AddField(components.FieldConfig{
+		Name:        components.FieldNameKey,
+		Label:       "SSH ключ",
+		Required:    false,
+		Width:       50,
+		MaxLength:   200,
+		Placeholder: "Путь к SSH ключу",
+		FieldType:   components.FieldTypeText,
+	})
+
 	// Создаем viewport для прокрутки
 	vp := viewport.New(0, 0)
 
-	return &AddConnectionScreen{
+	// Создаем экран
+	screen := &AddConnectionScreen{
 		BaseScreen:    baseScreen,
 		connectionSvc: connectionSvc,
 		nameInput:     nameInput,
@@ -109,11 +172,16 @@ func NewAddConnectionScreen() *AddConnectionScreen {
 		passwordInput: passwordInput,
 		usePassword:   usePasswordField,
 		errors:        make(map[string]string),
-		currentField:  0,
-		fields:        fields,
+		formManager:   formManager,
 		viewport:      vp,
 		ready:         false,
 	}
+
+	// Устанавливаем фокус на первое поле сразу
+	screen.formManager.SetCurrentField(components.FieldNameName)
+	screen.formManager.UpdateFocus()
+
+	return screen
 }
 
 // Update обрабатывает обновления состояния
@@ -142,17 +210,17 @@ func (acs *AddConnectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return acs, ui.GoBackCmd()
 		case "tab":
 			// Переходим к следующему полю
-			acs.nextField()
+			acs.formManager.NextField()
 		case "shift+tab":
 			// Переходим к предыдущему полю
-			acs.prevField()
+			acs.formManager.PrevField()
 		case "enter":
-			if acs.currentField == 5 {
+			if acs.formManager.IsLastField() {
 				// Последнее поле - сохраняем
 				acs.saveConnection()
 			} else {
 				// Переходим к следующему полю
-				acs.nextField()
+				acs.formManager.NextField()
 			}
 		case "ctrl+s":
 			// Сохранить подключение
@@ -162,13 +230,20 @@ func (acs *AddConnectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			acs.togglePasswordVisibility()
 		case "space", "left", "right":
 			// Обрабатываем булевое поле
-			if acs.currentField == 4 {
+			if acs.formManager.GetCurrentField() == components.FieldNameAuth {
 				acs.usePassword, _ = acs.usePassword.Update(msg)
+				// Синхронизируем с полем в FormManager
+				authField := acs.formManager.GetField(components.FieldNameAuth)
+				if acs.usePassword.Value() {
+					authField.SetValue("true")
+				} else {
+					authField.SetValue("false")
+				}
 			}
-		case "up", "k":
+		case "up":
 			// Прокрутка вверх
 			acs.viewport.ScrollUp(1)
-		case "down", "j":
+		case "down":
 			// Прокрутка вниз
 			acs.viewport.ScrollDown(1)
 		case "pageup":
@@ -180,80 +255,33 @@ func (acs *AddConnectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Обновляем поля ПОСЛЕ обработки KeyMsg (как работало)
-	acs.nameInput, cmd = acs.nameInput.Update(msg)
-	acs.hostInput, _ = acs.hostInput.Update(msg)
-	acs.portInput, _ = acs.portInput.Update(msg)
-	acs.userInput, _ = acs.userInput.Update(msg)
-
-	// Обновляем условные поля только если они видимы
-	if acs.showPasswordField {
-		acs.passwordInput, _ = acs.passwordInput.Update(msg)
-	}
-	if acs.showKeyField {
-		acs.keyPathInput, _ = acs.keyPathInput.Update(msg)
-	}
-
-	// Убеждаемся, что текущее поле имеет фокус
-	switch acs.currentField {
-	case 0:
-		acs.nameInput.Focus()
-		acs.hostInput.Blur()
-		acs.portInput.Blur()
-		acs.userInput.Blur()
-		acs.usePassword.Blur()
-		acs.passwordInput.Blur()
-		acs.keyPathInput.Blur()
-	case 1:
-		acs.nameInput.Blur()
-		acs.hostInput.Focus()
-		acs.portInput.Blur()
-		acs.userInput.Blur()
-		acs.usePassword.Blur()
-		acs.passwordInput.Blur()
-		acs.keyPathInput.Blur()
-	case 2:
-		acs.nameInput.Blur()
-		acs.hostInput.Blur()
-		acs.portInput.Focus()
-		acs.userInput.Blur()
-		acs.usePassword.Blur()
-		acs.passwordInput.Blur()
-		acs.keyPathInput.Blur()
-	case 3:
-		acs.nameInput.Blur()
-		acs.hostInput.Blur()
-		acs.portInput.Blur()
-		acs.userInput.Focus()
-		acs.usePassword.Blur()
-		acs.passwordInput.Blur()
-		acs.keyPathInput.Blur()
-	case 4:
-		acs.nameInput.Blur()
-		acs.hostInput.Blur()
-		acs.portInput.Blur()
-		acs.userInput.Blur()
-		acs.usePassword.Focus()
-		acs.passwordInput.Blur()
-		acs.keyPathInput.Blur()
-	case 5:
-		acs.nameInput.Blur()
-		acs.hostInput.Blur()
-		acs.portInput.Blur()
-		acs.userInput.Blur()
-		acs.usePassword.Blur()
-		if acs.showPasswordField {
-			acs.passwordInput.Focus()
-		} else if acs.showKeyField {
-			acs.keyPathInput.Focus()
+	// Обновляем все поля через менеджер формы
+	for _, fieldName := range acs.formManager.GetFieldOrder() {
+		field := acs.formManager.GetField(fieldName)
+		_, fieldCmd := field.Update(msg)
+		if fieldCmd != nil {
+			if teaCmd, ok := fieldCmd.(tea.Cmd); ok {
+				cmd = teaCmd
+			}
 		}
 	}
+
+	// Обновляем фокус через менеджер формы
+	acs.formManager.UpdateFocus()
 
 	// Обновляем видимость полей на основе выбора аутентификации
 	acs.updateFieldVisibility()
 
 	// Обновляем содержимое viewport
 	acs.updateViewportContent()
+
+	// Прокручиваем viewport для видимости текущего поля после навигации
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "tab", "shift+tab", "enter":
+			acs.scrollToCurrentField()
+		}
+	}
 
 	// Обновляем базовый экран
 	baseScreen, baseCmd := acs.BaseScreen.Update(msg)
@@ -292,9 +320,13 @@ func (acs *AddConnectionScreen) View() string {
 
 // updateFieldVisibility обновляет видимость полей на основе выбора аутентификации
 func (acs *AddConnectionScreen) updateFieldVisibility() {
-	usePassword := acs.usePassword.Value()
-	acs.showPasswordField = usePassword
-	acs.showKeyField = !usePassword
+	// Получаем значение из FormManager
+	authField := acs.formManager.GetField(components.FieldNameAuth)
+	usePassword := authField.Value() == "true"
+
+	// Обновляем видимость в менеджере полей
+	acs.formManager.GetField(components.FieldNamePassword).SetVisible(usePassword)
+	acs.formManager.GetField(components.FieldNameKey).SetVisible(!usePassword)
 }
 
 // updateViewportContent обновляет содержимое viewport
@@ -305,332 +337,118 @@ func (acs *AddConnectionScreen) updateViewportContent() {
 
 // renderForm рендерит форму в виде вертикального списка
 func (acs *AddConnectionScreen) renderForm() string {
-	// Стили
-	fieldStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(styles.ColorPrimary)).
-		Width(50)
-
-	labelStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(styles.ColorSecondary)).
-		Bold(styles.TextBold).
-		Width(15)
-
-	instructionsStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(styles.ColorMuted)).
-		Italic(styles.TextItalic)
-
-	// Создаем два поля
-	var formContent []string
-
-	// Название
-	nameLabel := labelStyle.Render("Название:")
-	nameField := fieldStyle.Render(acs.nameInput.View())
-	if _, exists := acs.errors["name"]; exists {
-		// Поле с ошибкой - красная рамка
-		nameField = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(styles.ColorError)).
-			Width(50).
-			Render(acs.nameInput.View())
-	} else if acs.currentField == 0 {
-		// Активное поле - оранжевая рамка
-		nameField = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(styles.ColorWarning)).
-			Width(50).
-			Render(acs.nameInput.View())
-	}
-	formContent = append(formContent, lipgloss.JoinHorizontal(lipgloss.Center, nameLabel, nameField))
-	formContent = append(formContent, "") // Пустая строка
-
-	// Хост
-	hostLabel := labelStyle.Render("Хост:")
-	hostField := fieldStyle.Render(acs.hostInput.View())
-	if _, exists := acs.errors["host"]; exists {
-		// Поле с ошибкой - красная рамка
-		hostField = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(styles.ColorError)).
-			Width(50).
-			Render(acs.hostInput.View())
-	} else if acs.currentField == 1 {
-		// Активное поле - оранжевая рамка
-		hostField = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(styles.ColorWarning)).
-			Width(50).
-			Render(acs.hostInput.View())
-	}
-	formContent = append(formContent, lipgloss.JoinHorizontal(lipgloss.Center, hostLabel, hostField))
-	formContent = append(formContent, "") // Пустая строка
-
-	// Порт
-	portLabel := labelStyle.Render("Порт:")
-	portFieldStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(styles.ColorPrimary)).
-		Padding(0, 1).
-		Width(15)
-
-	portField := portFieldStyle.Render(acs.portInput.View())
-	if _, exists := acs.errors["port"]; exists {
-		// Поле с ошибкой - красная рамка
-		portField = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(styles.ColorError)).
-			Padding(0, 1).
-			Width(15).
-			Render(acs.portInput.View())
-	} else if acs.currentField == 2 {
-		// Активное поле - оранжевая рамка
-		portField = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(styles.ColorWarning)).
-			Padding(0, 1).
-			Width(15).
-			Render(acs.portInput.View())
-	}
-	formContent = append(formContent, lipgloss.JoinHorizontal(lipgloss.Center, portLabel, portField))
-	formContent = append(formContent, "") // Пустая строка
-
-	// Пользователь
-	userLabel := labelStyle.Render("Пользователь:")
-	userField := fieldStyle.Render(acs.userInput.View())
-	if _, exists := acs.errors["user"]; exists {
-		// Поле с ошибкой - красная рамка
-		userField = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(styles.ColorError)).
-			Padding(0, 1).
-			Width(50).
-			Render(acs.userInput.View())
-	} else if acs.currentField == 3 {
-		// Активное поле - оранжевая рамка
-		userField = lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color(styles.ColorWarning)).
-			Padding(0, 1).
-			Width(50).
-			Render(acs.userInput.View())
-	}
-	formContent = append(formContent, lipgloss.JoinHorizontal(lipgloss.Center, userLabel, userField))
-	formContent = append(formContent, "") // Пустая строка
-
-	// Булевое поле - использование пароля
-	authLabel := labelStyle.Render("Использовать пароль: (←/→)")
-	authField := acs.usePassword.View()
-	formContent = append(formContent, lipgloss.JoinHorizontal(lipgloss.Center, authLabel, authField))
-	formContent = append(formContent, "") // Пустая строка
-
-	// Условные поля в зависимости от выбора аутентификации
-	if acs.showPasswordField {
-		// Поле пароля
-		passwordLabel := labelStyle.Render("Пароль:")
-		passwordField := fieldStyle.Render(acs.passwordInput.View())
-		if _, exists := acs.errors["password"]; exists {
-			// Поле с ошибкой - красная рамка
-			passwordField = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color(styles.ColorError)).
-				Padding(0, 1).
-				Width(50).
-				Render(acs.passwordInput.View())
-		} else if acs.currentField == 5 {
-			// Активное поле - оранжевая рамка
-			passwordField = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color(styles.ColorWarning)).
-				Padding(0, 1).
-				Width(50).
-				Render(acs.passwordInput.View())
-		}
-		formContent = append(formContent, lipgloss.JoinHorizontal(lipgloss.Center, passwordLabel, passwordField))
-		formContent = append(formContent, "") // Пустая строка
-	}
-
-	if acs.showKeyField {
-		// Поле SSH ключа
-		keyLabel := labelStyle.Render("SSH ключ:")
-		keyField := fieldStyle.Render(acs.keyPathInput.View())
-		if _, exists := acs.errors["keyPath"]; exists {
-			// Поле с ошибкой - красная рамка
-			keyField = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color(styles.ColorError)).
-				Padding(0, 1).
-				Width(50).
-				Render(acs.keyPathInput.View())
-		} else if acs.currentField == 5 {
-			// Активное поле - оранжевая рамка
-			keyField = lipgloss.NewStyle().
-				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color(styles.ColorWarning)).
-				Padding(0, 1).
-				Width(50).
-				Render(acs.keyPathInput.View())
-		}
-		formContent = append(formContent, lipgloss.JoinHorizontal(lipgloss.Center, keyLabel, keyField))
-		formContent = append(formContent, "") // Пустая строка
-	}
-
-	// Инструкции
-	instructions := instructionsStyle.Render("Tab - след. поле • ↑/↓ - прокрутка • Enter - сохранить • Esc - назад")
-	formContent = append(formContent, instructions)
-
-	// Объединяем все в вертикальный список
-	content := lipgloss.JoinVertical(lipgloss.Left, formContent...)
-
-	return content
+	// Используем менеджер формы для рендеринга
+	return acs.formManager.RenderForm()
 }
 
-// nextField переходит к следующему полю
-func (acs *AddConnectionScreen) nextField() {
-	switch acs.currentField {
-	case 0:
-		acs.nameInput.Blur()
-		acs.currentField = 1
-		acs.hostInput.Focus()
-	case 1:
-		acs.hostInput.Blur()
-		acs.currentField = 2
-		acs.portInput.Focus()
-	case 2:
-		acs.portInput.Blur()
-		acs.currentField = 3
-		acs.userInput.Focus()
-	case 3:
-		acs.userInput.Blur()
-		acs.currentField = 4
-		acs.usePassword.Focus()
-	case 4:
-		acs.usePassword.Blur()
-		acs.currentField = 5
-		if acs.showPasswordField {
-			acs.passwordInput.Focus()
-		} else if acs.showKeyField {
-			acs.keyPathInput.Focus()
-		}
-	case 5:
-		acs.passwordInput.Blur()
-		acs.keyPathInput.Blur()
-		acs.currentField = 0
-		acs.nameInput.Focus()
-	}
-}
-
-// prevField переходит к предыдущему полю
-func (acs *AddConnectionScreen) prevField() {
-	switch acs.currentField {
-	case 0:
-		acs.nameInput.Blur()
-		acs.currentField = 5
-		if acs.showPasswordField {
-			acs.passwordInput.Focus()
-		} else if acs.showKeyField {
-			acs.keyPathInput.Focus()
-		}
-	case 1:
-		acs.hostInput.Blur()
-		acs.currentField = 0
-		acs.nameInput.Focus()
-	case 2:
-		acs.portInput.Blur()
-		acs.currentField = 1
-		acs.hostInput.Focus()
-	case 3:
-		acs.userInput.Blur()
-		acs.currentField = 2
-		acs.portInput.Focus()
-	case 4:
-		acs.usePassword.Blur()
-		acs.currentField = 3
-		acs.userInput.Focus()
-	case 5:
-		acs.passwordInput.Blur()
-		acs.keyPathInput.Blur()
-		acs.currentField = 4
-		acs.usePassword.Focus()
-	}
-}
+// Методы nextField и prevField удалены - навигация теперь обрабатывается через FieldManager
 
 // togglePasswordVisibility переключает видимость пароля
 func (acs *AddConnectionScreen) togglePasswordVisibility() {
-	if acs.passwordInput.EchoMode == textinput.EchoPassword {
-		acs.passwordInput.EchoMode = textinput.EchoNormal
-	} else {
-		acs.passwordInput.EchoMode = textinput.EchoPassword
+	passwordField := acs.formManager.GetField(components.FieldNamePassword)
+	if passwordField == nil {
+		return
+	}
+
+	// Получаем textinput.Model из FormField
+	if textInput, ok := passwordField.GetTextInput(); ok {
+		if textInput.EchoMode == textinput.EchoPassword {
+			textInput.EchoMode = textinput.EchoNormal
+		} else {
+			textInput.EchoMode = textinput.EchoPassword
+		}
+		// Обновляем поле в FormField
+		passwordField.SetTextInput(textInput)
 	}
 }
 
 // saveConnection сохраняет подключение
 func (acs *AddConnectionScreen) saveConnection() {
-	// Очищаем предыдущие ошибки
-	acs.errors = make(map[string]string)
-
-	// Валидация обязательных полей
-	if acs.nameInput.Value() == "" {
-		acs.errors["name"] = "Название обязательно"
-	}
-	if acs.hostInput.Value() == "" {
-		acs.errors["host"] = "Хост обязателен"
-	}
-	if acs.userInput.Value() == "" {
-		acs.errors["user"] = "Пользователь обязателен"
-	}
-
-	// Валидация условных полей
-	if acs.showPasswordField && acs.passwordInput.Value() == "" {
-		acs.errors["password"] = "Пароль обязателен"
-	}
-	// SSH ключ не обязателен - убираем валидацию
-
-	// Если есть ошибки, не сохраняем
-	if len(acs.errors) > 0 {
+	// Валидируем все поля
+	if !acs.formManager.ValidateAll() {
 		return
 	}
 
-	// Выводим все данные формы в консоль
-	fmt.Println("\n=== ДАННЫЕ ФОРМЫ ===")
-	fmt.Printf("Название: %s\n", acs.nameInput.Value())
-	fmt.Printf("Хост: %s\n", acs.hostInput.Value())
-	fmt.Printf("Порт: %s\n", acs.portInput.Value())
-	fmt.Printf("Пользователь: %s\n", acs.userInput.Value())
-	fmt.Printf("Использовать пароль: %t\n", acs.usePassword.Value())
-
-	if acs.showPasswordField {
-		fmt.Printf("Пароль: %s\n", acs.passwordInput.Value())
-	}
-	if acs.showKeyField {
-		fmt.Printf("SSH ключ: %s\n", acs.keyPathInput.Value())
-	}
-	fmt.Println("==================\n")
+	// Получаем значения полей
+	values := acs.formManager.GetValues()
 
 	// Создаем подключение
-	port := 22 // Значение по умолчанию
-	if acs.portInput.Value() != "" {
-		if parsedPort, err := strconv.Atoi(acs.portInput.Value()); err == nil {
-			port = parsedPort
+	port := 22 // По умолчанию
+	if values[components.FieldNamePort] != "" {
+		if p, err := strconv.Atoi(values[components.FieldNamePort]); err == nil {
+			port = p
 		}
 	}
-	_ = models.Connection{
-		Name:        acs.nameInput.Value(),
-		Host:        acs.hostInput.Value(),
+
+	connection := &models.Connection{
+		ID:          uuid.New().String(),
+		Name:        values[components.FieldNameName],
+		Host:        values[components.FieldNameHost],
 		Port:        port,
-		User:        acs.userInput.Value(),
-		KeyPath:     acs.keyPathInput.Value(),
-		HasPassword: acs.usePassword.Value(),
+		User:        values[components.FieldNameUser],
+		KeyPath:     values[components.FieldNameKey],
+		HasPassword: values[components.FieldNameAuth] == "true",
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
-	// TODO: Сохранить в сервисе
-	// Возвращаемся к списку подключений
-	// В реальном приложении здесь будет команда навигации
+	// Сохраняем подключение
+	acs.connectionSvc.AddConnection(connection)
+
+	// Выводим данные в консоль
+	fmt.Printf("Подключение сохранено:\n")
+	fmt.Printf("  Название: %s\n", connection.Name)
+	fmt.Printf("  Хост: %s\n", connection.Host)
+	fmt.Printf("  Порт: %d\n", connection.Port)
+	fmt.Printf("  Пользователь: %s\n", connection.User)
+	fmt.Printf("  Использовать пароль: %t\n", connection.HasPassword)
+	if connection.HasPassword {
+		fmt.Printf("  Пароль: %s\n", values[components.FieldNamePassword])
+	} else {
+		fmt.Printf("  SSH ключ: %s\n", values[components.FieldNameKey])
+	}
+
+	// Возвращаемся к предыдущему экрану
+	// В реальной реализации здесь будет команда навигации
+}
+
+// scrollToCurrentField прокручивает viewport для видимости текущего поля
+func (acs *AddConnectionScreen) scrollToCurrentField() {
+	if !acs.ready {
+		return
+	}
+
+	// Получаем текущее поле
+	currentField := acs.formManager.GetCurrentField()
+	fieldOrder := acs.formManager.GetFieldOrder()
+
+	// Находим индекс текущего поля
+	currentIndex := -1
+	for i, fieldName := range fieldOrder {
+		if fieldName == currentField {
+			currentIndex = i
+			break
+		}
+	}
+
+	if currentIndex == -1 {
+		return
+	}
+
+	// Упрощенная логика: просто прокручиваем на несколько строк вниз
+	// Каждое поле занимает примерно 2 строки (лейбл + поле)
+	linesPerField := 2
+	targetLine := currentIndex * linesPerField
+
+	// Простая прокрутка: устанавливаем позицию на текущее поле
+	acs.viewport.SetYOffset(targetLine)
 }
 
 // Init инициализирует экран
 func (acs *AddConnectionScreen) Init() tea.Cmd {
-	// Устанавливаем фокус на поле названия
-	acs.nameInput.Focus()
+	// Устанавливаем фокус на первое поле через FormManager
+	acs.formManager.SetCurrentField(components.FieldNameName)
+	acs.formManager.UpdateFocus()
 	return textinput.Blink
 }
 
