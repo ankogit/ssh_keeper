@@ -1,6 +1,8 @@
 package screens
 
 import (
+	"ssh-keeper/internal/ui/styles"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -39,35 +41,37 @@ func (bs *BaseScreen) Render() string {
 	if bs.width == 0 || bs.height == 0 {
 		return "Loading..."
 	}
+	width := bs.width
+	// height := bs.height
 
 	// Создаем стили для компонентов
 	containerStyle := lipgloss.NewStyle().
-		Width(bs.width - 10).
+		Width(width - styles.ContainerBorderWidth).
 		// Height(bs.height - 2).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#7D56F4")).
-		// Background(lipgloss.Color("#1A1A1A")).
-		Foreground(lipgloss.Color("#FFFFFF"))
+		BorderForeground(lipgloss.Color(styles.ColorPrimary)).
+		// Background(lipgloss.Color(styles.ColorBackground)).
+		Foreground(lipgloss.Color(styles.ColorText))
 
 	// Заголовок
 	headerStyle := lipgloss.NewStyle().
-		MaxWidth(bs.width). // Учитываем рамку контейнера
-		Bold(true).
-		Foreground(lipgloss.Color("#7D56F4")).
-		// Background(lipgloss.Color("#2D2D2D")).
-		Padding(0, 1).
-		Margin(0, 0, 1, 0).
+		MaxWidth(width). // Учитываем рамку контейнера
+		Bold(styles.TextBold).
+		Foreground(lipgloss.Color(styles.ColorPrimary)).
+		// Background(lipgloss.Color(styles.ColorContainer)).
+		Padding(0, styles.HeaderPadding).
+		Margin(0, 0, styles.HeaderMargin, 0).
 		Align(lipgloss.Center)
 
 	// Контент с рамкой
 	contentStyle := lipgloss.NewStyle().
-		Width(bs.width-12). // Учитываем рамку контейнера (2 символа с каждой стороны)
+		Width(width-styles.ContentBorderWidth). // Учитываем рамку контейнера (2 символа с каждой стороны)
 		// Height(bs.height-4). // Учитываем заголовок (1 строка) + рамку контейнера (2 строки) + отступ (1 строка)
-		Padding(1, 1).
+		Padding(styles.ContentPadding, styles.ContentPadding).
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#04B575")).
-		// Background(lipgloss.Color("#2D2D2D")).
-		Foreground(lipgloss.Color("#FFFFFF"))
+		BorderForeground(lipgloss.Color(styles.ColorSecondary)).
+		// Background(lipgloss.Color(styles.ColorContainer)).
+		Foreground(lipgloss.Color(styles.ColorText))
 
 	// Создаем заголовок
 	header := headerStyle.Render(bs.title)
@@ -104,4 +108,9 @@ func (bs *BaseScreen) View() string {
 // Init инициализирует экран
 func (bs *BaseScreen) Init() tea.Cmd {
 	return nil
+}
+
+// GetName возвращает имя экрана
+func (bs *BaseScreen) GetName() string {
+	return "base"
 }

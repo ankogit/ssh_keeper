@@ -15,11 +15,11 @@ func main() {
 	// Set up terminal environment
 	lipgloss.SetColorProfile(termenv.ColorProfile())
 
-	// Create main menu screen
-	screen := screens.NewMainMenuScreen()
+	// Create app with screen manager
+	app := screens.NewApp()
 
 	// Create tea program
-	p := tea.NewProgram(screen, tea.WithAltScreen())
+	p := tea.NewProgram(app, tea.WithAltScreen())
 
 	// Run the program
 	if _, err := p.Run(); err != nil {
