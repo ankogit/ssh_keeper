@@ -1,0 +1,13 @@
+/.idea
+/ssh-keeper
+/ssh-keeper.exe
+/ssh-keeper.exe.zip
+/ssh-keeper.exe.zip.sha256
+/ssh-keeper.exe.zip.sha256.txt
+/ssh-keeper.exe.zip.sha256.txt.sha256
+/ssh-keeper.exe.zip.sha256.txt.sha256.txt
+/vendor
+
+.DS_Store
+.idea
+.vscode
