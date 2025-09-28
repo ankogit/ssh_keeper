@@ -1,9 +1,15 @@
 package screens
 
 import (
+	"fmt"
+	"ssh-keeper/internal/services"
 	"ssh-keeper/internal/ui"
+	"ssh-keeper/internal/ui/items"
 	"ssh-keeper/internal/ui/styles"
+	"strings"
 
+	"github.com/charmbracelet/bubbles/list"
+	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -11,24 +17,49 @@ import (
 // ConnectionsScreen представляет экран управления подключениями
 type ConnectionsScreen struct {
 	*BaseScreen
-	connections []string
+	list          list.Model
+	searchInput   textinput.Model
+	connectionSvc *services.ConnectionService
+	allItems      []list.Item
 }
 
 // NewConnectionsScreen создает новый экран подключений
 func NewConnectionsScreen() *ConnectionsScreen {
 	baseScreen := NewBaseScreen("SSH Keeper - Подключения")
 
-	// Пример подключений
-	connections := []string{
-		"server1.example.com (192.168.1.100)",
-		"server2.example.com (192.168.1.101)",
-		"dev-server.local (10.0.0.50)",
-		"prod-server.example.com (203.0.113.10)",
+	// Создаем сервис подключений
+	connectionSvc := services.NewConnectionService()
+	connections := connectionSvc.GetAllConnections()
+
+	// Создаем элементы списка
+	var listItems []list.Item
+	for _, conn := range connections {
+		listItems = append(listItems, items.NewConnectionItem(conn))
 	}
 
+	// Создаем список (компактный, без фильтрации)
+	l := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
+	l.SetShowTitle(false)
+	l.SetShowStatusBar(false)
+	l.SetFilteringEnabled(false) // Отключаем встроенную фильтрацию
+	l.SetShowHelp(false)         // Отключаем встроенную справку
+
+	l.Styles.PaginationStyle = lipgloss.NewStyle().
+		Margin(1, 0, 0, 0)
+
+	// Создаем input для поиска
+	searchInput := textinput.New()
+	searchInput.Placeholder = "Поиск подключений..."
+	searchInput.Focus()
+	searchInput.CharLimit = 25
+	searchInput.Width = 40 // Фиксируем ширину при создании
+
 	return &ConnectionsScreen{
-		BaseScreen:  baseScreen,
-		connections: connections,
+		BaseScreen:    baseScreen,
+		list:          l,
+		searchInput:   searchInput,
+		connectionSvc: connectionSvc,
+		allItems:      listItems,
 	}
 }
 
@@ -39,16 +70,44 @@ func (cs *ConnectionsScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		cs.SetSize(msg.Width, msg.Height)
+		cs.list.SetSize(msg.Width-4, msg.Height-15) // Учитываем место для поиска
 		return cs, nil
 
 	case tea.KeyMsg:
+
 		switch msg.String() {
-		case "q", "ctrl+c":
+		case "ctrl+c":
 			return cs, tea.Quit
 		case "esc":
 			// Возврат к главному меню
 			return cs, ui.GoBackCmd()
+		case "enter":
+			// Подключиться к выбранному серверу
+			fmt.Println("Подключение к выбранному серверу")
+			cs.connectToSelected()
+		case "ctrl+a":
+			// TODO: Добавить новое подключение
+		case "ctrl+e":
+			fmt.Println("Редактирование выбранного подключения")
+
+			// TODO: Редактировать выбранное подключение
+		case "ctrl+d":
+			fmt.Println("Удаление выбранного подключения")
+			// TODO: Удалить выбранное подключение
 		}
+	}
+
+	// Обновляем поиск
+	cs.searchInput, cmd = cs.searchInput.Update(msg)
+
+	// Фильтруем список при изменении поиска
+	cs.filterList()
+
+	// Обновляем список
+	var listCmd tea.Cmd
+	cs.list, listCmd = cs.list.Update(msg)
+	if listCmd != nil {
+		cmd = listCmd
 	}
 
 	// Обновляем базовый экран
@@ -69,44 +128,32 @@ func (cs *ConnectionsScreen) View() string {
 
 // updateContent обновляет содержимое экрана
 func (cs *ConnectionsScreen) updateContent() {
-	// Создаем стили
-	headerStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(styles.ColorPrimary)).
-		Bold(styles.TextBold).
-		Margin(0, 0, 1, 0)
-
-	itemStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(styles.ColorText)).
-		Margin(0, 0, 0, 2)
+	// Стили - принудительно фиксируем размер
+	searchStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(styles.ColorWarning)).
+		Padding(0, 1) // Отступы внутри
 
 	instructionsStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(styles.ColorMuted)).
 		Italic(styles.TextItalic).
-		Margin(1, 0, 0, 0)
+		Width(80) // Фиксируем ширину для предотвращения переносов
 
-	// Создаем заголовок
-	header := headerStyle.Render("Доступные SSH подключения:")
+	// Создаем поиск
+	searchView := searchStyle.Render(cs.searchInput.View())
 
-	// Создаем список подключений
-	var items []string
-	for i, conn := range cs.connections {
-		item := itemStyle.Render(lipgloss.NewStyle().
-			Foreground(lipgloss.Color(styles.ColorSecondary)).
-			Render("• ") + conn)
-		items = append(items, item)
-		if i < len(cs.connections)-1 {
-			items = append(items, "")
-		}
-	}
+	// Получаем содержимое списка
+	listContent := cs.list.View()
 
-	// Создаем инструкции
-	instructions := instructionsStyle.Render("Нажмите 'Esc' для возврата к главному меню, 'q' для выхода")
+	// Инструкции - принудительно применяем стиль к каждой строке
+	instructionsText := "↑/↓ нав. • Enter подкл. • Ctrl+E ред. • Ctrl+D удал. • Esc назад"
+	instructions := instructionsStyle.Render(instructionsText)
 
-	// Объединяем все части
+	// Объединяем все
 	content := lipgloss.JoinVertical(lipgloss.Left,
-		header,
+		searchView,
 		"",
-		lipgloss.JoinVertical(lipgloss.Left, items...),
+		listContent,
 		"",
 		instructions,
 	)
@@ -122,4 +169,40 @@ func (cs *ConnectionsScreen) Init() tea.Cmd {
 // GetName возвращает имя экрана
 func (cs *ConnectionsScreen) GetName() string {
 	return "connections"
+}
+
+// filterList фильтрует список по поисковому запросу
+func (cs *ConnectionsScreen) filterList() {
+	query := cs.searchInput.Value()
+	if query == "" {
+		// Показываем все элементы
+		cs.list.SetItems(cs.allItems)
+		return
+	}
+
+	// Фильтруем элементы
+	var filteredItems []list.Item
+	for _, item := range cs.allItems {
+		if connItem, ok := item.(items.ConnectionItem); ok {
+			// Поиск по названию, хосту и пользователю
+			if strings.Contains(strings.ToLower(connItem.Title()), strings.ToLower(query)) ||
+				strings.Contains(strings.ToLower(connItem.Description()), strings.ToLower(query)) ||
+				strings.Contains(strings.ToLower(connItem.FilterValue()), strings.ToLower(query)) {
+				filteredItems = append(filteredItems, item)
+			}
+		}
+	}
+
+	cs.list.SetItems(filteredItems)
+}
+
+// connectToSelected подключается к выбранному серверу
+func (cs *ConnectionsScreen) connectToSelected() {
+	selectedItem := cs.list.SelectedItem()
+	if item, ok := selectedItem.(items.ConnectionItem); ok {
+		conn := item.GetConnection()
+		// TODO: Реализовать подключение к SSH
+		// Пока просто показываем информацию
+		cs.SetContent("Подключение к " + conn.Name + " (" + conn.Host + ")...")
+	}
 }

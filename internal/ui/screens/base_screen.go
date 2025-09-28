@@ -41,6 +41,9 @@ func (bs *BaseScreen) Render() string {
 	if bs.width == 0 || bs.height == 0 {
 		return "Loading..."
 	}
+	if bs.width < 80 {
+		return "Resize the window to at least 80 characters wide..."
+	}
 	width := bs.width
 	// height := bs.height
 
