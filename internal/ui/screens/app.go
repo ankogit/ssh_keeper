@@ -19,11 +19,13 @@ func NewApp() *App {
 	// Создаем экраны
 	mainMenu := CreateMenuWithActions() // Используем меню с действиями
 	connections := NewConnectionsScreen()
+	addConnection := NewAddConnectionScreen()
 	settings := NewSettingsScreen()
 
 	// Регистрируем экраны
 	manager.RegisterScreen("main_menu", mainMenu)
 	manager.RegisterScreen("connections", connections)
+	manager.RegisterScreen("add_connection", addConnection)
 	manager.RegisterScreen("settings", settings)
 
 	// Устанавливаем главное меню как текущий экран
@@ -53,8 +55,7 @@ func CreateMenuWithActions() *MainMenuScreen {
 				Description: "Создать новое SSH подключение",
 				Shortcut:    "2",
 				Action: func() tea.Cmd {
-					// TODO: Реализовать экран добавления подключения
-					return nil
+					return ui.NavigateToCmd("add_connection")
 				},
 			},
 			{
