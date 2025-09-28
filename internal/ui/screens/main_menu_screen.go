@@ -88,7 +88,7 @@ func (mms *MainMenuScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		mms.SetSize(msg.Width, msg.Height)
 
-		mms.list.SetSize(msg.Width-4, msg.Height-16)
+		mms.list.SetSize(msg.Width-4, msg.Height-8)
 		return mms, nil
 
 	case tea.KeyMsg:
