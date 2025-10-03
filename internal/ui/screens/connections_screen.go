@@ -2,7 +2,11 @@ package screens
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"ssh-keeper/internal/models"
 	"ssh-keeper/internal/services"
+	"ssh-keeper/internal/ssh"
 	"ssh-keeper/internal/ui"
 	"ssh-keeper/internal/ui/components"
 	"ssh-keeper/internal/ui/styles"
@@ -83,7 +87,6 @@ func (cs *ConnectionsScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return cs, ui.GoBackCmd()
 		case "enter":
 			// Подключиться к выбранному серверу
-			fmt.Println("Подключение к выбранному серверу")
 			cs.connectToSelected()
 		case "ctrl+a":
 			// TODO: Добавить новое подключение
@@ -201,8 +204,79 @@ func (cs *ConnectionsScreen) connectToSelected() {
 	selectedItem := cs.list.SelectedItem()
 	if item, ok := selectedItem.(components.ConnectionItem); ok {
 		conn := item.GetConnection()
-		// TODO: Реализовать подключение к SSH
-		// Пока просто показываем информацию
-		cs.SetContent("Подключение к " + conn.Name + " (" + conn.Host + ")...")
+		// Создаем SSH экран и запускаем подключение
+		cs.launchSSHSession(&conn)
 	}
+}
+
+// launchSSHSession запускает SSH сессию
+func (cs *ConnectionsScreen) launchSSHSession(conn *models.Connection) {
+	// Восстанавливаем терминал перед запуском SSH
+	cs.restoreTerminal()
+
+	// Создаем соответствующий SSH клиент на основе типа аутентификации
+	factory := ssh.NewClientFactory()
+	sshClient := factory.CreateClient(conn)
+
+	// Если это клиент с паролем, устанавливаем пароль
+	if passwordClient, ok := sshClient.(*ssh.PasswordClient); ok {
+		if conn.HasPassword {
+			// Если пароль сохранен в модели, используем его
+			if conn.Password != "" {
+				passwordClient.SetPassword(conn.Password)
+			}
+			// Если пароля нет, не устанавливаем его - пользователь введет вручную
+		}
+	}
+
+	// Выводим информацию о подключении
+	fmt.Printf("Подключение к %s (%s:%d) как %s...\n",
+		conn.Name, conn.Host, conn.Port, conn.User)
+	fmt.Printf("Команда: %s\n", sshClient.GetConnectionString())
+	fmt.Println("Запускаем SSH процесс...")
+
+	// Запускаем SSH подключение (это закроет наше приложение)
+	sshClient.Connect()
+
+	// Если SSH завершился успешно, восстанавливаем терминал и закрываем приложение
+	fmt.Println("SSH сессия завершена. Приложение закрывается...")
+	cs.restoreTerminal()
+	os.Exit(0)
+}
+
+// restoreTerminal восстанавливает терминал
+func (cs *ConnectionsScreen) restoreTerminal() {
+	// Радикальное восстановление терминалае
+	fmt.Print("\033[?1049l") // Выход из альтернативного буфера
+	fmt.Print("\033[?25h")   // Показать курсор
+	fmt.Print("\033[?2004l") // Отключаем bracketed paste mode
+	fmt.Print("\033[?1l")    // Отключаем application cursor keys
+	fmt.Print("\033[?7h")    // Включаем auto wrap mode
+	fmt.Print("\033[?12l")   // Отключаем local echo
+	fmt.Print("\033[?1000l") // Отключаем mouse reporting
+	fmt.Print("\033[?1001l") // Отключаем mouse reporting
+	fmt.Print("\033[?1002l") // Отключаем mouse reporting
+	fmt.Print("\033[?1003l") // Отключаем mouse reporting
+	fmt.Print("\033[?1005l") // Отключаем mouse reporting
+	fmt.Print("\033[?1006l") // Отключаем mouse reporting
+	fmt.Print("\033[?1015l") // Отключаем mouse reporting
+	fmt.Print("\033[?25h")   // Показать курсор
+	fmt.Print("\033[0m")     // Сбрасываем все атрибуты
+	fmt.Print("\033c")       // Полный сброс терминала
+	fmt.Print("\033[2J")     // Очищаем экран
+	fmt.Print("\033[H")      // Перемещаем курсор в начало
+	fmt.Print("\033[?25h")   // Показать курсор
+	fmt.Print("\033[0m")     // Сбрасываем все атрибуты
+
+	// Радикальная защита через reset и stty
+	exec.Command("reset").Run()
+	exec.Command("stty", "sane").Run()
+	exec.Command("tput", "reset").Run()
+}
+
+// restoreTUI восстанавливает TUI
+func (cs *ConnectionsScreen) restoreTUI() {
+	// Возвращаемся в альтернативный буфер
+	fmt.Print("\033[?1049h") // Вход в альтернативный буфер
+	fmt.Print("\033[?25l")   // Скрыть курсор
 }

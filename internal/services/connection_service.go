@@ -68,11 +68,23 @@ func getSampleConnections() []models.Connection {
 	return []models.Connection{
 		{
 			ID:          "1",
-			Name:        "Production Server",
-			Host:        "prod.example.com",
+			Name:        "Test Server (Password Auth)",
+			Host:        "213.165.35.209",
 			Port:        22,
-			User:        "admin",
-			KeyPath:     "~/.ssh/id_rsa",
+			User:        "root",
+			KeyPath:     "",
+			HasPassword: true,
+			Password:    "yrw6hs1IsLxt",
+			CreatedAt:   time.Now().Add(-30 * 24 * time.Hour),
+			UpdatedAt:   time.Now().Add(-7 * 24 * time.Hour),
+		},
+		{
+			ID:          "1b",
+			Name:        "Test Server 2 (SSH Key)",
+			Host:        "95.216.195.202",
+			Port:        22,
+			User:        "root",
+			KeyPath:     "", // Пустой путь означает использование дефолтных ключей
 			HasPassword: false,
 			CreatedAt:   time.Now().Add(-30 * 24 * time.Hour),
 			UpdatedAt:   time.Now().Add(-7 * 24 * time.Hour),

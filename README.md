@@ -162,3 +162,10 @@ MIT License - see LICENSE file for details
 - [Bubbles](https://github.com/charmbracelet/bubbles) - UI components
 - [go-keyring](https://github.com/99designs/go-keyring) - Secure storage
 - [Termenv](https://github.com/muesli/termenv) - Terminal environment
+
+#возможности ssh подключения
+
+1. передача пароля через sshpass
+2. SSH_ASKPASS
+3. github.com/Netflix/go-expect
+4. golang.org/x/crypto/ssh

@@ -13,6 +13,7 @@ type Connection struct {
 	User        string    `yaml:"user"`
 	KeyPath     string    `yaml:"key_path,omitempty"`
 	HasPassword bool      `yaml:"has_password"`
+	Password    string    `yaml:"password,omitempty"`
 	CreatedAt   time.Time `yaml:"created_at"`
 	UpdatedAt   time.Time `yaml:"updated_at"`
 }
