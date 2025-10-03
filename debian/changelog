@@ -1,0 +1,9 @@
+ssh-keeper (0.1.0-1) unstable; urgency=medium
+
+  * Initial release
+  * SSH connection management with TUI interface
+  * Secure password storage
+  * OpenSSH config compatibility
+
+ -- Your Name <your.email@example.com>  Mon, 01 Jan 2024 12:00:00 +0000
+

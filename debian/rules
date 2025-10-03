@@ -1,0 +1,18 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+export DH_OPTIONS = -v
+
+%:
+	dh $@
+
+override_dh_auto_build:
+	# Build the binary
+	go build -ldflags "-X main.version=$(shell dpkg-parsechangelog -S Version)" -o ssh-keeper ./cmd/ssh-keeper
+
+override_dh_auto_install:
+	# Install the binary
+	mkdir -p debian/ssh-keeper/usr/bin
+	cp ssh-keeper debian/ssh-keeper/usr/bin/
+	chmod 755 debian/ssh-keeper/usr/bin/ssh-keeper
+

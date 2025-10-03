@@ -1,0 +1,94 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.21"
+
+      - name: Get version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+
+          # Linux
+          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=${{ steps.get_version.outputs.VERSION }}" -o dist/ssh-keeper-linux-amd64 ./cmd/ssh-keeper
+
+          # macOS Intel
+          GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=${{ steps.get_version.outputs.VERSION }}" -o dist/ssh-keeper-darwin-amd64 ./cmd/ssh-keeper
+
+          # macOS Apple Silicon
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=${{ steps.get_version.outputs.VERSION }}" -o dist/ssh-keeper-darwin-arm64 ./cmd/ssh-keeper
+
+          # Windows
+          GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=${{ steps.get_version.outputs.VERSION }}" -o dist/ssh-keeper-windows-amd64.exe ./cmd/ssh-keeper
+
+      - name: Create archives
+        run: |
+          cd dist
+
+          # Linux
+          tar -czf ssh-keeper-${{ steps.get_version.outputs.VERSION }}-linux-amd64.tar.gz ssh-keeper-linux-amd64
+
+          # macOS Intel
+          tar -czf ssh-keeper-${{ steps.get_version.outputs.VERSION }}-darwin-amd64.tar.gz ssh-keeper-darwin-amd64
+
+          # macOS Apple Silicon
+          tar -czf ssh-keeper-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.tar.gz ssh-keeper-darwin-arm64
+
+          # Windows
+          zip ssh-keeper-${{ steps.get_version.outputs.VERSION }}-windows-amd64.zip ssh-keeper-windows-amd64.exe
+
+      - name: Create Debian package
+        run: |
+          # Install dependencies
+          sudo apt-get update
+          sudo apt-get install -y devscripts debhelper
+
+          # Build Debian package
+          ./build-deb.sh
+
+          # Move to dist directory
+          mv ../*.deb dist/
+          mv ../*.changes dist/
+          mv ../*.dsc dist/
+
+      - name: Create Homebrew formula
+        run: |
+          # Calculate SHA256 for the macOS ARM64 binary
+          SHA256=$(sha256sum dist/ssh-keeper-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.tar.gz | cut -d' ' -f1)
+
+          # Update formula with correct SHA256
+          sed -i "s/sha256 \"\"/sha256 \"$SHA256\"/" Formula/ssh-keeper.rb
+
+          # Copy formula to dist
+          cp Formula/ssh-keeper.rb dist/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.zip
+            dist/*.deb
+            dist/*.changes
+            dist/*.dsc
+            dist/ssh-keeper.rb
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

@@ -105,7 +105,7 @@ func DefaultMenuConfig() MenuConfig {
 			{
 				Title:       "Выход",
 				Description: "Закрыть приложение",
-				Shortcut:    "q",
+				Shortcut:    "ctrl+q",
 				Action: func() tea.Cmd {
 					return tea.Quit
 				},

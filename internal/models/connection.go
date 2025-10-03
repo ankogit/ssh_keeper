@@ -12,6 +12,7 @@ type Connection struct {
 	Port        int       `yaml:"port,omitempty"`
 	User        string    `yaml:"user"`
 	KeyPath     string    `yaml:"key_path,omitempty"`
+	UseSSHKey   bool      `yaml:"use_ssh_key"` // Whether to use SSH key authentication
 	HasPassword bool      `yaml:"has_password"`
 	Password    string    `yaml:"password,omitempty"`
 	CreatedAt   time.Time `yaml:"created_at"`

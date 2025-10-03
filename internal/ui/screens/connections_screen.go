@@ -21,19 +21,19 @@ import (
 // ConnectionsScreen представляет экран управления подключениями
 type ConnectionsScreen struct {
 	*BaseScreen
-	list          list.Model
-	searchInput   textinput.Model
-	connectionSvc *services.ConnectionService
-	allItems      []list.Item
+	list           list.Model
+	searchInput    textinput.Model
+	connectionSvc  *services.ConnectionService
+	allItems       []list.Item
+	messageManager *components.MessageManager
 }
 
 // NewConnectionsScreen создает новый экран подключений
 func NewConnectionsScreen() *ConnectionsScreen {
 	baseScreen := NewBaseScreen("SSH Keeper - Подключения")
 
-	// Создаем сервис подключений
-	connectionSvc := services.NewConnectionService()
-	connections := connectionSvc.GetAllConnections()
+	// Получаем подключения через глобальный сервис
+	connections := services.GetConnections()
 
 	// Создаем элементы списка
 	var listItems []list.Item
@@ -47,6 +47,9 @@ func NewConnectionsScreen() *ConnectionsScreen {
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false) // Отключаем встроенную фильтрацию
 	l.SetShowHelp(false)         // Отключаем встроенную справку
+	
+	// Отключаем обработку клавиши 'q' в списке
+	l.KeyMap.Quit.SetKeys("ctrl+q") // Меняем с "q" на "ctrl+q"
 
 	l.Styles.PaginationStyle = lipgloss.NewStyle().
 		Margin(1, 0, 0, 0)
@@ -58,13 +61,62 @@ func NewConnectionsScreen() *ConnectionsScreen {
 	searchInput.CharLimit = 25
 	searchInput.Width = 40 // Фиксируем ширину при создании
 
+	// Создаем менеджер сообщений
+	messageManager := components.NewMessageManager()
+
 	return &ConnectionsScreen{
-		BaseScreen:    baseScreen,
-		list:          l,
-		searchInput:   searchInput,
-		connectionSvc: connectionSvc,
-		allItems:      listItems,
+		BaseScreen:     baseScreen,
+		list:           l,
+		searchInput:    searchInput,
+		connectionSvc:  services.GetGlobalConnectionService(),
+		allItems:       listItems,
+		messageManager: messageManager,
 	}
+}
+
+// refreshConnections обновляет список подключений
+func (cs *ConnectionsScreen) refreshConnections() {
+	// Перезагружаем подключения из файла
+	err := services.ReloadConnections()
+	if err != nil {
+		cs.messageManager.AddError(fmt.Sprintf("Ошибка загрузки подключений: %v", err))
+		return
+	}
+
+	// Получаем актуальные подключения
+	connections := services.GetConnections()
+
+	// Создаем новые элементы списка
+	var listItems []list.Item
+	for _, conn := range connections {
+		listItems = append(listItems, components.NewConnectionItem(conn))
+	}
+
+	// Обновляем список
+	cs.allItems = listItems
+	cs.list.SetItems(listItems)
+}
+
+// deleteSelectedConnection удаляет выбранное подключение
+func (cs *ConnectionsScreen) deleteSelectedConnection() tea.Cmd {
+	selectedItem := cs.list.SelectedItem()
+	if item, ok := selectedItem.(components.ConnectionItem); ok {
+		conn := item.GetConnection()
+
+		// Удаляем подключение через сервис
+		err := services.DeleteConnection(conn.ID)
+		if err != nil {
+			cs.messageManager.AddError(fmt.Sprintf("Ошибка удаления: %v", err))
+			return nil
+		}
+
+		// Обновляем список
+		cs.refreshConnections()
+
+		// Показываем сообщение об успехе
+		cs.messageManager.AddSuccess(fmt.Sprintf("Подключение '%s' удалено", conn.Name))
+	}
+	return nil
 }
 
 // Update обрабатывает обновления состояния
@@ -75,6 +127,13 @@ func (cs *ConnectionsScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		cs.SetSize(msg.Width, msg.Height)
 		cs.list.SetSize(msg.Width-4, msg.Height-15) // Учитываем место для поиска
+		return cs, nil
+
+	case ui.NavigateToMsg:
+		// Обновляем список при навигации к экрану
+		if msg.ScreenName == "connections" {
+			cs.refreshConnections()
+		}
 		return cs, nil
 
 	case tea.KeyMsg:
@@ -95,8 +154,8 @@ func (cs *ConnectionsScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// TODO: Редактировать выбранное подключение
 		case "ctrl+d":
-			fmt.Println("Удаление выбранного подключения")
-			// TODO: Удалить выбранное подключение
+			// Удалить выбранное подключение
+			return cs, cs.deleteSelectedConnection()
 		}
 	}
 
@@ -152,20 +211,25 @@ func (cs *ConnectionsScreen) updateContent() {
 	instructionsText := "↑/↓ нав. • Enter подкл. • Ctrl+E ред. • Ctrl+D удал. • Esc назад"
 	instructions := instructionsStyle.Render(instructionsText)
 
+	// Добавляем сообщения
+	messages := cs.messageManager.RenderMessages(80)
+
 	// Объединяем все
-	content := lipgloss.JoinVertical(lipgloss.Left,
-		searchView,
-		"",
-		listContent,
-		"",
-		instructions,
-	)
+	var contentParts []string
+	if messages != "" {
+		contentParts = append(contentParts, messages)
+	}
+	contentParts = append(contentParts, searchView, "", listContent, "", instructions)
+
+	content := lipgloss.JoinVertical(lipgloss.Left, contentParts...)
 
 	cs.SetContent(content)
 }
 
 // Init инициализирует экран
 func (cs *ConnectionsScreen) Init() tea.Cmd {
+	// Перезагружаем подключения при инициализации
+	cs.refreshConnections()
 	return nil
 }
 

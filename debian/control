@@ -1,0 +1,27 @@
+Source: ssh-keeper
+Section: utils
+Priority: optional
+Maintainer: Your Name <your.email@example.com>
+Build-Depends: debhelper (>= 11), golang-go (>= 1.21), pkg-config
+Standards-Version: 4.1.3
+Homepage: https://github.com/yourusername/ssh-keeper
+Vcs-Git: https://github.com/yourusername/ssh-keeper.git
+Vcs-Browser: https://github.com/yourusername/ssh-keeper
+
+Package: ssh-keeper
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: sshpass, gnupg
+Suggests: openssh-client
+Description: A beautiful and secure CLI tool for managing SSH connections
+SSH Keeper is a modern TUI application for managing SSH connections
+with secure password storage and beautiful interface.
+.
+Features:
+
+- Browse and search SSH connections
+- Add new SSH connections easily
+- Secure password storage
+- Export/Import OpenSSH config compatibility
+- Modern TUI with colors and animations
+- Fast and lightweight Go implementation

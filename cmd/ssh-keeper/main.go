@@ -5,13 +5,20 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
+	"ssh-keeper/internal/services"
 	"ssh-keeper/internal/ui/screens"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
+)
+
+// Global services
+var (
+	connectionService *services.ConnectionService
 )
 
 func main() {
@@ -30,6 +37,12 @@ func main() {
 		os.Exit(0)
 	}()
 
+	// Initialize services
+	if err := initializeServices(); err != nil {
+		fmt.Printf("Error initializing services: %v\n", err)
+		os.Exit(1)
+	}
+
 	// Create app with screen manager
 	app := screens.NewApp()
 
@@ -42,6 +55,46 @@ func main() {
 		restoreTerminal()
 		os.Exit(1)
 	}
+}
+
+// initializeServices initializes all application services
+func initializeServices() error {
+	// Get user home directory
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get user home directory: %w", err)
+	}
+
+	// Create SSH Keeper config directory
+	configDir := filepath.Join(homeDir, ".ssh-keeper")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	// Set config file path
+	configPath := filepath.Join(configDir, "config")
+
+	// For now, use a simple master key
+	// In production, this should be derived from user input or stored securely
+	masterKey := "ssh-keeper-default-key-2024"
+
+	// Initialize connection service
+	connectionService = services.NewConnectionService(configPath, masterKey)
+
+	// Initialize with sample data if no config exists
+	if err := connectionService.InitializeWithSampleData(); err != nil {
+		return fmt.Errorf("failed to initialize with sample data: %w", err)
+	}
+
+	// Set global service
+	services.SetGlobalConnectionService(connectionService)
+
+	return nil
+}
+
+// GetConnectionService returns the global connection service
+func GetConnectionService() *services.ConnectionService {
+	return connectionService
 }
 
 // restoreTerminal восстанавливает терминал при выходе

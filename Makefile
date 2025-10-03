@@ -122,6 +122,30 @@ release: build-all
 	
 	@echo "$(GREEN)Release packages created in $(BUILD_DIR)/release/$(NC)"
 
+# Create Debian package
+deb: build
+	@echo "$(BLUE)Creating Debian package...$(NC)"
+	@./build-deb.sh
+	@echo "$(GREEN)Debian package created!$(NC)"
+
+# Create Homebrew formula
+homebrew-formula:
+	@echo "$(BLUE)Creating Homebrew formula...$(NC)"
+	@mkdir -p $(BUILD_DIR)
+	@cp Formula/ssh-keeper.rb $(BUILD_DIR)/
+	@echo "$(GREEN)Homebrew formula created in $(BUILD_DIR)/$(NC)"
+
+# Create GitHub release
+github-release: release deb homebrew-formula
+	@echo "$(BLUE)Creating GitHub release...$(NC)"
+	@echo "$(YELLOW)Please create a GitHub release manually with the following files:$(NC)"
+	@echo "$(BUILD_DIR)/release/*.tar.gz"
+	@echo "$(BUILD_DIR)/release/*.zip"
+	@echo "$(BUILD_DIR)/*.deb"
+	@echo "$(BUILD_DIR)/*.changes"
+	@echo "$(BUILD_DIR)/*.dsc"
+	@echo "$(BUILD_DIR)/ssh-keeper.rb"
+
 # Development setup
 dev-setup: deps
 	@echo "$(BLUE)Setting up development environment...$(NC)"
@@ -157,6 +181,9 @@ help:
 	@echo ""
 	@echo "$(YELLOW)Release commands:$(NC)"
 	@echo "  release      Create release packages"
+	@echo "  deb          Create Debian package"
+	@echo "  homebrew-formula Create Homebrew formula"
+	@echo "  github-release Create all release files"
 	@echo ""
 	@echo "$(YELLOW)Other commands:$(NC)"
 	@echo "  help         Show this help message"

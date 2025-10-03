@@ -22,6 +22,10 @@ func NewConnectionItem(conn models.Connection) ConnectionItem {
 
 // Title возвращает заголовок элемента
 func (ci ConnectionItem) Title() string {
+	// Если название пустое, используем user@host
+	if ci.Connection.Name == "" {
+		return fmt.Sprintf("%s@%s", ci.Connection.User, ci.Connection.Host)
+	}
 	return ci.Connection.Name
 }
 
@@ -33,12 +37,12 @@ func (ci ConnectionItem) Description() string {
 
 	// Тип аутентификации (только иконка)
 	var authIcon string
-	if ci.Connection.KeyPath != "" {
-		authIcon = "🔑"
+	if ci.Connection.UseSSHKey {
+		authIcon = "🔑" // SSH ключ (конкретный или дефолтный)
 	} else if ci.Connection.HasPassword {
-		authIcon = "🔒"
+		authIcon = "🔒" // Только пароль
 	} else {
-		authIcon = "❓"
+		authIcon = "❓" // Неизвестно
 	}
 
 	return fmt.Sprintf("%s | %s | %s", hostInfo, userInfo, authIcon)
@@ -46,9 +50,12 @@ func (ci ConnectionItem) Description() string {
 
 // FilterValue возвращает значение для фильтрации
 func (ci ConnectionItem) FilterValue() string {
+	// Используем правильное название для поиска
+	title := ci.Title()
+
 	// Поиск по названию, хосту и пользователю
 	return fmt.Sprintf("%s %s %s",
-		ci.Connection.Name,
+		title,
 		ci.Connection.Host,
 		ci.Connection.User)
 }

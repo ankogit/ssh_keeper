@@ -44,7 +44,7 @@ func (ss *SettingsScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "q", "ctrl+c":
+		case "ctrl+c":
 			return ss, tea.Quit
 		case "esc":
 			// Возврат к главному меню
@@ -99,7 +99,7 @@ func (ss *SettingsScreen) updateContent() {
 		settingsList = append(settingsList, setting)
 	}
 
-	// Создаем инструкции
+	// Создаем инструкция и
 	instructions := instructionsStyle.Render("Нажмите 'Esc' для возврата к главному меню, 'q' для выхода")
 
 	// Объединяем все части

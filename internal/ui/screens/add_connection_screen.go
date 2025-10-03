@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"ssh-keeper/internal/models"
 	"ssh-keeper/internal/services"
+	"ssh-keeper/internal/ssh"
 	"ssh-keeper/internal/ui"
 	"ssh-keeper/internal/ui/components"
 	"ssh-keeper/internal/ui/styles"
@@ -22,18 +23,13 @@ type AddConnectionScreen struct {
 	*BaseScreen
 	connectionSvc *services.ConnectionService
 
-	// Поля формы
-	nameInput     textinput.Model
-	hostInput     textinput.Model
-	portInput     textinput.Model
-	userInput     textinput.Model
-	keyPathInput  textinput.Model
-	passwordInput textinput.Model
-	usePassword   *components.BoolField // Булевое поле для выбора аутентификации
-	errors        map[string]string
+	errors map[string]string
 
 	// Менеджер формы
 	formManager *components.FormManager
+
+	// Менеджер сообщений
+	messageManager *components.MessageManager
 
 	// Прокрутка
 	viewport viewport.Model
@@ -44,48 +40,13 @@ type AddConnectionScreen struct {
 func NewAddConnectionScreen() *AddConnectionScreen {
 	baseScreen := NewBaseScreen("SSH Keeper - Добавить подключение")
 
-	connectionSvc := services.NewConnectionService()
-
-	// Создаем поля формы
-	nameInput := textinput.New()
-	nameInput.Placeholder = "Название подключения"
-	nameInput.CharLimit = 50
-	nameInput.Width = 50
-
-	hostInput := textinput.New()
-	hostInput.Placeholder = "example.com"
-	hostInput.CharLimit = 100
-	hostInput.Width = 50
-
-	portInput := textinput.New()
-	portInput.Placeholder = "22"
-	portInput.CharLimit = 5
-	portInput.Width = 15
-
-	userInput := textinput.New()
-	userInput.Placeholder = "username"
-	userInput.CharLimit = 50
-	userInput.Width = 50
-
-	keyPathInput := textinput.New()
-	keyPathInput.Placeholder = "/path/to/private/key"
-	keyPathInput.CharLimit = 200
-	keyPathInput.Width = 50
-
-	passwordInput := textinput.New()
-	passwordInput.Placeholder = "Пароль (если нет ключа)"
-	passwordInput.CharLimit = 100
-	passwordInput.Width = 50
-	passwordInput.EchoMode = textinput.EchoPassword
-
-	// Поля созданы выше
-
-	// Создаем булевое поле
-	usePasswordField := components.NewBoolField("Использовать пароль")
-	usePasswordField.SetWidth(20)
+	connectionSvc := services.GetGlobalConnectionService()
 
 	// Создаем менеджер формы
 	formManager := components.NewFormManager()
+
+	// Создаем менеджер сообщений
+	messageManager := components.NewMessageManager()
 
 	// Добавляем поля в форму
 	formManager.AddField(components.FieldConfig{
@@ -130,7 +91,7 @@ func NewAddConnectionScreen() *AddConnectionScreen {
 
 	formManager.AddField(components.FieldConfig{
 		Name:        components.FieldNameAuth,
-		Label:       "Использовать пароль",
+		Label:       "Использовать пароль (←/→)",
 		Required:    true,
 		Width:       20,
 		Placeholder: "",
@@ -162,19 +123,13 @@ func NewAddConnectionScreen() *AddConnectionScreen {
 
 	// Создаем экран
 	screen := &AddConnectionScreen{
-		BaseScreen:    baseScreen,
-		connectionSvc: connectionSvc,
-		nameInput:     nameInput,
-		hostInput:     hostInput,
-		portInput:     portInput,
-		userInput:     userInput,
-		keyPathInput:  keyPathInput,
-		passwordInput: passwordInput,
-		usePassword:   usePasswordField,
-		errors:        make(map[string]string),
-		formManager:   formManager,
-		viewport:      vp,
-		ready:         false,
+		BaseScreen:     baseScreen,
+		connectionSvc:  connectionSvc,
+		errors:         make(map[string]string),
+		formManager:    formManager,
+		messageManager: messageManager,
+		viewport:       vp,
+		ready:          false,
 	}
 
 	// Устанавливаем фокус на первое поле сразу
@@ -193,12 +148,21 @@ func (acs *AddConnectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		acs.SetSize(msg.Width, msg.Height)
 		if !acs.ready {
 			// Инициализируем viewport при первом изменении размера
+			// Учитываем все служебные элементы: заголовки, рамки, отступы
 			acs.viewport = viewport.New(msg.Width-4, msg.Height-12)
 			acs.ready = true
 			acs.updateViewportContent()
 		} else {
+			// Используем одинаковый размер для консистентности
 			acs.viewport.Width = msg.Width - 4
-			acs.viewport.Height = msg.Height - 8
+			acs.viewport.Height = msg.Height - 12
+		}
+		return acs, nil
+
+	case ui.NavigateToMsg:
+		// Очищаем форму только при навигации к другому экрану (не к самому add_connection)
+		if msg.ScreenName != "add_connection" {
+			acs.clearForm()
 		}
 		return acs, nil
 
@@ -207,6 +171,8 @@ func (acs *AddConnectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+c":
 			return acs, tea.Quit
 		case "esc":
+			// Очищаем форму и возвращаемся
+			acs.clearForm()
 			return acs, ui.GoBackCmd()
 		case "tab":
 			// Переходим к следующему полю
@@ -217,27 +183,32 @@ func (acs *AddConnectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if acs.formManager.IsLastField() {
 				// Последнее поле - сохраняем
-				acs.saveConnection()
+				return acs, acs.saveConnection()
 			} else {
 				// Переходим к следующему полю
 				acs.formManager.NextField()
 			}
 		case "ctrl+s":
 			// Сохранить подключение
-			acs.saveConnection()
+			return acs, acs.saveConnection()
+		case "ctrl+t":
+			// Тестировать SSH подключение
+			return acs, acs.testConnection()
 		case "ctrl+p":
 			// Переключить показ пароля
 			acs.togglePasswordVisibility()
 		case "space", "left", "right":
-			// Обрабатываем булевое поле
+			// Обрабатываем булевое поле через FormManager
 			if acs.formManager.GetCurrentField() == components.FieldNameAuth {
-				acs.usePassword, _ = acs.usePassword.Update(msg)
-				// Синхронизируем с полем в FormManager
-				authField := acs.formManager.GetField(components.FieldNameAuth)
-				if acs.usePassword.Value() {
-					authField.SetValue("true")
-				} else {
-					authField.SetValue("false")
+				// Обновляем поле в FormManager напрямую
+				field := acs.formManager.GetField(components.FieldNameAuth)
+				if field != nil {
+					_, fieldCmd := field.Update(msg)
+					if fieldCmd != nil {
+						if teaCmd, ok := fieldCmd.(tea.Cmd); ok {
+							cmd = teaCmd
+						}
+					}
 				}
 			}
 		case "up":
@@ -279,7 +250,8 @@ func (acs *AddConnectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if keyMsg, ok := msg.(tea.KeyMsg); ok {
 		switch keyMsg.String() {
 		case "tab", "shift+tab", "enter":
-			acs.scrollToCurrentField()
+			// Добавляем команду для прокрутки после обновления содержимого
+			cmd = tea.Sequence(cmd, acs.scrollToCurrentFieldCmd())
 		}
 	}
 
@@ -302,14 +274,21 @@ func (acs *AddConnectionScreen) View() string {
 	// Подготавливаем содержимое viewport
 	viewportContent := acs.viewport.View()
 
+	// Добавляем сообщения в начало
+	messages := acs.messageManager.RenderMessages(80) // Используем фиксированную ширину
+	if messages != "" {
+		viewportContent = messages + viewportContent
+	}
+
 	// Добавляем индикатор прокрутки под viewport если не дошли до конца
 	if !acs.viewport.AtBottom() {
-		// Создаем стрелку вниз
+		// Создаем более информативный индикатор прокрутки
 		scrollIndicator := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(styles.ColorMuted)).
-			Render("↓↓↓")
+			Align(lipgloss.Center).
+			Render("↓ Прокрутите вниз для просмотра всех полей ↓")
 
-		// Добавляем стрелку под содержимое viewport
+		// Добавляем индикатор под содержимое viewport
 		viewportContent += "\n" + scrollIndicator
 	}
 
@@ -363,10 +342,10 @@ func (acs *AddConnectionScreen) togglePasswordVisibility() {
 }
 
 // saveConnection сохраняет подключение
-func (acs *AddConnectionScreen) saveConnection() {
+func (acs *AddConnectionScreen) saveConnection() tea.Cmd {
 	// Валидируем все поля
 	if !acs.formManager.ValidateAll() {
-		return
+		return nil
 	}
 
 	// Получаем значения полей
@@ -387,29 +366,113 @@ func (acs *AddConnectionScreen) saveConnection() {
 		Port:        port,
 		User:        values[components.FieldNameUser],
 		KeyPath:     values[components.FieldNameKey],
+		UseSSHKey:   !(values[components.FieldNameAuth] == "true"), // Если не пароль, то SSH ключ
 		HasPassword: values[components.FieldNameAuth] == "true",
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
 
-	// Сохраняем подключение
-	acs.connectionSvc.AddConnection(connection)
-
-	// Выводим данные в консоль
-	fmt.Printf("Подключение сохранено:\n")
-	fmt.Printf("  Название: %s\n", connection.Name)
-	fmt.Printf("  Хост: %s\n", connection.Host)
-	fmt.Printf("  Порт: %d\n", connection.Port)
-	fmt.Printf("  Пользователь: %s\n", connection.User)
-	fmt.Printf("  Использовать пароль: %t\n", connection.HasPassword)
+	// Добавляем пароль если используется
 	if connection.HasPassword {
-		fmt.Printf("  Пароль: %s\n", values[components.FieldNamePassword])
-	} else {
-		fmt.Printf("  SSH ключ: %s\n", values[components.FieldNameKey])
+		connection.Password = values[components.FieldNamePassword]
 	}
 
-	// Возвращаемся к предыдущему экрану
-	// В реальной реализации здесь будет команда навигации
+	// Сохраняем подключение
+	err := acs.connectionSvc.AddConnection(connection)
+	if err != nil {
+		// Показываем ошибку сохранения
+		acs.messageManager.AddError(fmt.Sprintf("Ошибка сохранения: %v", err))
+		return nil
+	}
+
+	// Очищаем ошибки
+	acs.errors = make(map[string]string)
+
+	// Добавляем сообщение об успехе
+	acs.messageManager.AddSuccess(fmt.Sprintf("Подключение '%s' успешно добавлено!", connection.Name))
+
+	// Очищаем форму
+	acs.clearForm()
+
+	// Остаемся на экране добавления
+	return nil
+}
+
+// testConnection тестирует SSH подключение без сохранения
+func (acs *AddConnectionScreen) testConnection() tea.Cmd {
+	// Валидируем все поля
+	if !acs.formManager.ValidateAll() {
+		return nil
+	}
+
+	// Получаем значения полей
+	values := acs.formManager.GetValues()
+
+	// Создаем подключение для тестирования
+	port := 22 // По умолчанию
+	if values[components.FieldNamePort] != "" {
+		if p, err := strconv.Atoi(values[components.FieldNamePort]); err == nil {
+			port = p
+		}
+	}
+
+	connection := &models.Connection{
+		Name:        values[components.FieldNameName],
+		Host:        values[components.FieldNameHost],
+		Port:        port,
+		User:        values[components.FieldNameUser],
+		KeyPath:     values[components.FieldNameKey],
+		UseSSHKey:   !(values[components.FieldNameAuth] == "true"), // Если не пароль, то SSH ключ
+		HasPassword: values[components.FieldNameAuth] == "true",
+	}
+
+	// Добавляем пароль если используется
+	if connection.HasPassword {
+		connection.Password = values[components.FieldNamePassword]
+	}
+
+	// Тестируем подключение
+	acs.messageManager.AddInfo("Тестирование SSH подключения...")
+
+	// Создаем SSH клиент
+	clientFactory := ssh.NewClientFactory()
+	client := clientFactory.CreateClient(connection)
+
+	// Пытаемся подключиться
+	err := client.Connect()
+	if err != nil {
+		acs.messageManager.AddError(fmt.Sprintf("❌ SSH подключение не удалось: %v", err))
+		return nil
+	}
+
+	// Показываем успех
+	acs.messageManager.AddSuccess(fmt.Sprintf("SSH подключение к %s@%s:%d успешно!", connection.User, connection.Host, connection.Port))
+
+	return nil
+}
+
+// clearForm очищает все поля формы
+func (acs *AddConnectionScreen) clearForm() {
+	// Очищаем все поля через FormManager
+	for _, fieldName := range acs.formManager.GetFieldOrder() {
+		field := acs.formManager.GetField(fieldName)
+		if field != nil {
+			field.SetValue("")
+		}
+	}
+
+	// Очищаем ошибки
+	acs.errors = make(map[string]string)
+
+	// Устанавливаем фокус на первое поле
+	acs.formManager.SetCurrentField(components.FieldNameName)
+	acs.formManager.UpdateFocus()
+
+	// Сбрасываем прокрутку в начало
+	if acs.ready {
+		acs.viewport.SetYOffset(0)
+		acs.updateViewportContent()
+	}
 }
 
 // scrollToCurrentField прокручивает viewport для видимости текущего поля
@@ -435,13 +498,43 @@ func (acs *AddConnectionScreen) scrollToCurrentField() {
 		return
 	}
 
-	// Упрощенная логика: просто прокручиваем на несколько строк вниз
-	// Каждое поле занимает примерно 2 строки (лейбл + поле)
-	linesPerField := 2
+	// Более точная логика прокрутки
+	// Каждое поле занимает примерно 4 строки (лейбл + поле + отступы)
+	linesPerField := 4
 	targetLine := currentIndex * linesPerField
 
-	// Простая прокрутка: устанавливаем позицию на текущее поле
-	acs.viewport.SetYOffset(targetLine)
+	// Получаем высоту viewport и общую высоту содержимого
+	viewportHeight := acs.viewport.Height
+	totalContentHeight := acs.viewport.TotalLineCount()
+
+	// Если содержимое помещается в viewport, не прокручиваем
+	if totalContentHeight <= viewportHeight {
+		acs.viewport.SetYOffset(0)
+		return
+	}
+
+	// Рассчитываем оптимальную позицию прокрутки
+	// Пытаемся поместить текущее поле в верхнюю треть viewport
+	optimalOffset := targetLine - viewportHeight/3
+
+	// Ограничиваем прокрутку границами содержимого
+	maxOffset := totalContentHeight - viewportHeight
+	if optimalOffset < 0 {
+		optimalOffset = 0
+	} else if optimalOffset > maxOffset {
+		optimalOffset = maxOffset
+	}
+
+	// Плавно прокручиваем к оптимальной позиции
+	acs.viewport.SetYOffset(optimalOffset)
+}
+
+// scrollToCurrentFieldCmd возвращает команду для прокрутки к текущему полю
+func (acs *AddConnectionScreen) scrollToCurrentFieldCmd() tea.Cmd {
+	return func() tea.Msg {
+		acs.scrollToCurrentField()
+		return nil
+	}
 }
 
 // Init инициализирует экран

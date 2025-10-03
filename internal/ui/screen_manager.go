@@ -111,6 +111,10 @@ func (sm *ScreenManager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				newScreen.Update(tea.WindowSizeMsg{Width: sm.width, Height: sm.height})
 			}
 		}
+		// Передаем NavigateToMsg новому экрану для обработки
+		if newScreen := sm.GetCurrentScreen(); newScreen != nil {
+			newScreen.Update(msg)
+		}
 		return sm, nil
 	case GoBackMsg:
 		sm.GoBack()
@@ -119,6 +123,10 @@ func (sm *ScreenManager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if newScreen := sm.GetCurrentScreen(); newScreen != nil {
 				newScreen.Update(tea.WindowSizeMsg{Width: sm.width, Height: sm.height})
 			}
+		}
+		// Передаем GoBackMsg новому экрану для обработки
+		if newScreen := sm.GetCurrentScreen(); newScreen != nil {
+			newScreen.Update(msg)
 		}
 		return sm, nil
 	}

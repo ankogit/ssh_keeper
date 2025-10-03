@@ -32,6 +32,12 @@ func NewMainMenuScreen() *MainMenuScreen {
 	l := list.New(convertToListItem(menuItems), list.NewDefaultDelegate(), 0, 0)
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
+	l.SetShowHelp(false)
+	l.SetShowTitle(false)
+	l.SetShowPagination(false) // Отключаем пагинацию для лучшего отображения
+
+	// Отключаем обработку клавиши 'q' в списке
+	l.KeyMap.Quit.SetKeys("ctrl+q") // Меняем с "q" на "ctrl+q"
 
 	l.Styles.PaginationStyle = lipgloss.NewStyle().
 		Margin(styles.ListPaginationMargin, 0, 0, 0)
@@ -56,10 +62,14 @@ func NewMainMenuScreenWithConfig(config ui.MenuConfig) *MainMenuScreen {
 
 	// Создаем список
 	l := list.New(convertToListItem(menuItems), list.NewDefaultDelegate(), 0, 0)
-	// l.Title = config.Title
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false)
+	l.SetShowHelp(false)
+	l.SetShowPagination(false) // Отключаем пагинацию для лучшего отображения
+
+	// Отключаем обработку клавиши 'q' в списке
+	l.KeyMap.Quit.SetKeys("ctrl+q") // Меняем с "q" на "ctrl+q"
 	// l.Styles.Title = lipgloss.NewStyle().
 	// 	Foreground(lipgloss.Color(styles.ColorPrimary)).
 	// 	Bold(styles.TextBold).
@@ -92,12 +102,14 @@ func (mms *MainMenuScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		mms.SetSize(msg.Width, msg.Height)
-		mms.list.SetSize(msg.Width-4, msg.Height-10)
+		// Учитываем все служебные элементы: заголовки, рамки, отступы
+		mms.list.SetSize(msg.Width-4, msg.Height-12)
 		return mms, nil
 
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "q", "ctrl+c":
+		case "ctrl+c", "ctrl+q", "esc":
+
 			return mms, tea.Quit
 		case "enter":
 			// Обрабатываем выбор элемента
