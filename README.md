@@ -33,7 +33,7 @@ _Built with ❤️ using [Bubble Tea](https://github.com/charmbracelet/bubbletea
 **macOS & Linux:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install-v2.sh | bash
 ```
 
 **Windows (PowerShell):**
