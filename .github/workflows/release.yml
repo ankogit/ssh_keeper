@@ -92,6 +92,7 @@ jobs:
         run: go mod vendor
 
       - name: Build binary
+        shell: bash
         run: |
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
             -ldflags "-X main.version=${{ steps.version.outputs.version_clean }}" \
@@ -99,6 +100,7 @@ jobs:
             ./cmd/ssh-keeper
 
       - name: Create archive
+        shell: bash
         run: |
           if [ "${{ matrix.goos }}" = "windows" ]; then
             zip ${{ env.BINARY_NAME }}-${{ steps.version.outputs.version_clean }}-${{ matrix.artifact_name }}.${{ matrix.artifact_ext }} ${{ env.BINARY_NAME }}-${{ matrix.artifact_name }}.exe

@@ -233,7 +233,7 @@ type MenuItem struct {
 
 ```go
 // В app.go
-screenManager.RegisterScreen("main_menu", NewMainMenuScreen())
+screenManager.RegisterScreen("main_menu", NewMainMenuScreenWithConfig(config))
 screenManager.RegisterScreen("connections", NewConnectionsScreen())
 screenManager.RegisterScreen("add_connection", NewAddConnectionScreen())
 screenManager.RegisterScreen("settings", NewSettingsScreen())

@@ -17,39 +17,6 @@ type MainMenuScreen struct {
 	menuItems []ui.MenuItem
 }
 
-// NewMainMenuScreen создает новый экран главного меню
-func NewMainMenuScreen() *MainMenuScreen {
-	baseScreen := NewBaseScreen("SSH Keeper - Главное меню")
-	config := ui.DefaultMenuConfig()
-
-	// Создаем элементы меню с действиями
-	menuItems := make([]ui.MenuItem, len(config.Items))
-	for i, itemConfig := range config.Items {
-		menuItems[i] = ui.NewMenuItem(itemConfig)
-	}
-
-	// Создаем список
-	l := list.New(convertToListItem(menuItems), list.NewDefaultDelegate(), 0, 0)
-	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false)
-	l.SetShowHelp(false)
-	l.SetShowTitle(false)
-	l.SetShowPagination(false) // Отключаем пагинацию для лучшего отображения
-
-	// Отключаем обработку клавиши 'q' в списке
-	l.KeyMap.Quit.SetKeys("ctrl+q") // Меняем с "q" на "ctrl+q"
-
-	l.Styles.PaginationStyle = lipgloss.NewStyle().
-		Margin(styles.ListPaginationMargin, 0, 0, 0)
-
-	return &MainMenuScreen{
-		BaseScreen: baseScreen,
-		list:       l,
-		config:     config,
-		menuItems:  menuItems,
-	}
-}
-
 // NewMainMenuScreenWithConfig создает новый экран главного меню с пользовательской конфигурацией
 func NewMainMenuScreenWithConfig(config ui.MenuConfig) *MainMenuScreen {
 	baseScreen := NewBaseScreen("SSH Keeper - Главное меню")

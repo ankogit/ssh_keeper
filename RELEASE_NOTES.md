@@ -7,6 +7,7 @@ This release introduces a fully automated CI/CD pipeline with GitHub Actions, ma
 ## ✨ What's New
 
 ### CI/CD Pipeline
+
 - 🚀 **Automated Builds** - GitHub Actions builds for all platforms automatically
 - 🔄 **Continuous Integration** - Automated testing and validation on every commit
 - 📦 **Automatic Releases** - Tag-based releases with artifacts
@@ -14,6 +15,7 @@ This release introduces a fully automated CI/CD pipeline with GitHub Actions, ma
 - ⚡ **Fast Feedback** - Quick build validation for developers
 
 ### Previous Features (v0.1.0)
+
 - 🎨 **Beautiful TUI Interface** - Modern terminal user interface built with Bubble Tea
 - 🔐 **Secure Password Storage** - Master password with system keyring integration
 - 🔑 **Dual Authentication** - Support for both password and SSH key authentication
@@ -24,6 +26,7 @@ This release introduces a fully automated CI/CD pipeline with GitHub Actions, ma
 ## ✨ What's New
 
 ### Core Features
+
 - 🎨 **Beautiful TUI Interface** - Modern terminal user interface built with Bubble Tea
 - 🔐 **Secure Password Storage** - Master password with system keyring integration
 - 🔑 **Dual Authentication** - Support for both password and SSH key authentication
@@ -32,12 +35,14 @@ This release introduces a fully automated CI/CD pipeline with GitHub Actions, ma
 - 📤 **Export/Import** - Full compatibility with OpenSSH config format
 
 ### Security Features
+
 - **Encrypted Storage** - All connection data encrypted using AES-256
 - **System Keyring Integration** - Master password stored in system keyring
 - **Memory Management** - Sensitive data cleared from memory after use
 - **No Plain Text** - No passwords stored in plain text files
 
 ### Cross-Platform Support
+
 - ✅ **macOS** (Intel & Apple Silicon)
 - ✅ **Linux** (x86_64)
 - ✅ **Windows** (x86_64)
@@ -47,11 +52,13 @@ This release introduces a fully automated CI/CD pipeline with GitHub Actions, ma
 ### One-Line Install (Recommended)
 
 **macOS & Linux:**
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.sh | bash
 ```
 
 **Windows:**
+
 ```powershell
 iwr -useb https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.ps1 | iex
 ```
@@ -106,6 +113,7 @@ SSH Keeper now uses GitHub Actions for automated CI/CD:
 - ✅ **Code Quality** - Linting and formatting checks
 
 **Create a release:**
+
 ```bash
 git tag v0.1.7
 git push origin v0.1.7

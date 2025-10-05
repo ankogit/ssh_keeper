@@ -54,6 +54,7 @@ jobs:
         run: go mod vendor
 
       - name: Build all platforms
+        shell: bash
         run: |
           # Linux
           GOOS=linux GOARCH=amd64 go build \
@@ -76,6 +77,7 @@ jobs:
             -o ssh-keeper-windows-amd64.exe ./cmd/ssh-keeper
 
       - name: Create archives
+        shell: bash
         run: |
           tar -czf ssh-keeper-${{ steps.version.outputs.version_clean }}-linux-amd64.tar.gz ssh-keeper-linux-amd64
           tar -czf ssh-keeper-${{ steps.version.outputs.version_clean }}-darwin-amd64.tar.gz ssh-keeper-darwin-amd64
