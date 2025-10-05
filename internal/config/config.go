@@ -22,7 +22,7 @@ type Config struct {
 
 	// Настройки безопасности
 	Security struct {
-		AppSignature string `envconfig:"APP_SIGNATURE"`
+		AppSignature string `envconfig:"SECURITY_APP_SIGNATURE"`
 	} `envconfig:"SECURITY"`
 
 	// Настройки SSH

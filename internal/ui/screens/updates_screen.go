@@ -170,6 +170,10 @@ func (us *UpdatesScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return us, tea.Sequence(
 				func() tea.Msg {
 					time.Sleep(2 * time.Second)
+					// Вызываем перезапуск приложения
+					if err := us.updateService.RestartApplication(); err != nil {
+						fmt.Printf("Ошибка перезапуска: %v\n", err)
+					}
 					return tea.Quit
 				},
 			)
