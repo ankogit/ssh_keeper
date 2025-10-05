@@ -28,7 +28,19 @@ _Built with ❤️ using [Bubble Tea](https://github.com/charmbracelet/bubbletea
 
 ## 🚀 Quick Start
 
-### Download & Install
+### One-line Installation (Recommended)
+
+**macOS & Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+iwr -useb https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.ps1 | iex
+```
+
+### Manual Download & Install
 
 Download the latest release for your platform:
 
@@ -50,6 +62,8 @@ chmod +x ssh-keeper*
 # Run
 ./ssh-keeper
 ```
+
+> **📖 Подробная инструкция по установке**: [INSTALL.md](INSTALL.md) | [macOS Apple Silicon](INSTALL_MACOS.md)
 
 ## 📸 Screenshots
 
