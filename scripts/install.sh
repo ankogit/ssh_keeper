@@ -2,7 +2,6 @@
 
 # SSH Keeper - One-line installer
 # Usage: curl -fsSL https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.sh | bash
-# Fixed version format issue - URLs now correct
 
 set -e
 
@@ -52,10 +51,12 @@ install_ssh_keeper() {
         download_url="${download_url}.zip"
         local filename="ssh-keeper-${VERSION}-${platform}.zip"
         local binary_name="ssh-keeper-${VERSION}-${platform}.exe"
+        local extracted_name="ssh-keeper-${platform}.exe"
     else
         download_url="${download_url}.tar.gz"
         local filename="ssh-keeper-${VERSION}-${platform}.tar.gz"
         local binary_name="ssh-keeper-${VERSION}-${platform}"
+        local extracted_name="ssh-keeper-${platform}"
     fi
     
     echo -e "${BLUE}🚀 Installing SSH Keeper...${NC}"
@@ -93,7 +94,7 @@ install_ssh_keeper() {
     
     # Make executable (Unix systems)
     if [[ "$platform" != "windows-amd64" ]]; then
-        chmod +x "$binary_name"
+        chmod +x "$extracted_name"
     fi
     
     # Install
@@ -102,16 +103,16 @@ install_ssh_keeper() {
         # Windows: copy to a directory in PATH
         local windows_install_dir="$HOME/bin"
         mkdir -p "$windows_install_dir"
-        cp "$binary_name" "$windows_install_dir/$BINARY_NAME.exe"
+        cp "$extracted_name" "$windows_install_dir/$BINARY_NAME.exe"
         echo -e "${GREEN}✅ SSH Keeper installed to ${windows_install_dir}/${BINARY_NAME}.exe${NC}"
         echo -e "${YELLOW}💡 Make sure ${windows_install_dir} is in your PATH${NC}"
     else
         # Unix systems: install to system directory
         if [[ -w "$INSTALL_DIR" ]]; then
-            cp "$binary_name" "$INSTALL_DIR/$BINARY_NAME"
+            cp "$extracted_name" "$INSTALL_DIR/$BINARY_NAME"
         else
             echo -e "${YELLOW}🔐 Installing to system directory (requires sudo)...${NC}"
-            sudo cp "$binary_name" "$INSTALL_DIR/$BINARY_NAME"
+            sudo cp "$extracted_name" "$INSTALL_DIR/$BINARY_NAME"
         fi
         echo -e "${GREEN}✅ SSH Keeper installed to ${INSTALL_DIR}/${BINARY_NAME}${NC}"
     fi
