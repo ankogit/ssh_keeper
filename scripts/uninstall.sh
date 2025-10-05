@@ -134,7 +134,7 @@ main() {
     echo -e "${BLUE}"
     echo "  ╔══════════════════════════════════════════════════════════════╗"
     echo "  ║                                                              ║"
-    echo "  ║                    🗑️  SSH KEEPER 🗑️                         ║"
+    echo "  ║                    🗑️  SSH KEEPER 🗑️                           ║"
     echo "  ║                                                              ║"
     echo "  ║                    Uninstaller                               ║"
     echo "  ║                                                              ║"
