@@ -37,7 +37,7 @@ jobs:
           DEBUG=false
           ENV=production
           CONFIG_PATH=~/.ssh-keeper/config
-          APP_SIGNATURE=${{ env.APP_SIGNATURE }}
+          SECURITY_APP_SIGNATURE=${{ env.APP_SIGNATURE }}
           SSH_CONFIG_PATH=~/.ssh/config
           APP_NAME=ssh-keeper
           APP_VERSION=${{ steps.version.outputs.version_clean }}
