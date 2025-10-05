@@ -98,6 +98,9 @@ func initializeServices() error {
 	// Устанавливаем APP_SIGNATURE из встроенной переменной, если она есть
 	if appSignature != "" {
 		os.Setenv("APP_SIGNATURE", appSignature)
+	} else {
+		fmt.Printf("ERROR: APP_SIGNATURE not embedded in binary!\n")
+		return fmt.Errorf("APP_SIGNATURE not embedded in binary")
 	}
 
 	// Инициализируем конфигурацию
