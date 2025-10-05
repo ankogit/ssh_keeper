@@ -75,11 +75,13 @@ jobs:
       - name: Create production .env
         shell: bash
         run: |
+          echo "DEBUG: APP_SIGNATURE value is: '${{ env.APP_SIGNATURE }}'"
+          echo "DEBUG: APP_SIGNATURE length is: ${#APP_SIGNATURE}"
           cat > .env << EOF
           DEBUG=false
           ENV=production
           CONFIG_PATH=~/.ssh-keeper/config
-          SECURITY_APP_SIGNATURE=${{ env.APP_SIGNATURE }}
+          SECURITY_APP_SIGNATURE=${{ env.APP_SIGNATURE || 'ssh-keeper-sig-prod' }}
           SSH_CONFIG_PATH=~/.ssh/config
           APP_NAME=ssh-keeper
           APP_VERSION=${{ steps.version.outputs.version_clean }}
@@ -87,6 +89,8 @@ jobs:
           LOG_LEVEL=info
           LOG_FORMAT=text
           EOF
+          echo "DEBUG: Created .env file:"
+          cat .env
 
       - name: Download dependencies
         run: go mod download
