@@ -105,12 +105,12 @@ jobs:
         run: |
           if [ "${{ matrix.goos }}" = "windows" ]; then
             GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
-              -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ env.APP_SIGNATURE }}" \
+              -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
               -o ${{ env.BINARY_NAME }}-${{ matrix.artifact_name }}.exe \
               ./cmd/ssh-keeper
           else
             GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
-              -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ env.APP_SIGNATURE }}" \
+              -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
               -o ${{ env.BINARY_NAME }}-${{ matrix.artifact_name }} \
               ./cmd/ssh-keeper
           fi

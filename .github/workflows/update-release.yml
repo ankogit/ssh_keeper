@@ -60,22 +60,22 @@ jobs:
         run: |
           # Linux
           GOOS=linux GOARCH=amd64 go build \
-            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ env.APP_SIGNATURE }}" \
+            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
             -o ssh-keeper-linux-amd64 ./cmd/ssh-keeper
 
           # macOS Intel
           GOOS=darwin GOARCH=amd64 go build \
-            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ env.APP_SIGNATURE }}" \
+            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
             -o ssh-keeper-darwin-amd64 ./cmd/ssh-keeper
 
           # macOS Apple Silicon
           GOOS=darwin GOARCH=arm64 go build \
-            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ env.APP_SIGNATURE }}" \
+            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
             -o ssh-keeper-darwin-arm64 ./cmd/ssh-keeper
 
           # Windows
           GOOS=windows GOARCH=amd64 go build \
-            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ env.APP_SIGNATURE }}" \
+            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
             -o ssh-keeper-windows-amd64.exe ./cmd/ssh-keeper
 
       - name: Create archives

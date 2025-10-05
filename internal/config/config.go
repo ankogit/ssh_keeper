@@ -21,9 +21,7 @@ type Config struct {
 	ConfigPath string `envconfig:"CONFIG_PATH" default:"~/.ssh-keeper/config"`
 
 	// Настройки безопасности
-	Security struct {
-		AppSignature string `envconfig:"SECURITY_APP_SIGNATURE"`
-	} `envconfig:"SECURITY"`
+	AppSignature string `envconfig:"SECURITY_APP_SIGNATURE"`
 
 	// Настройки SSH
 	SSH struct {
@@ -98,7 +96,7 @@ func (c *Config) IsProduction() bool {
 
 // GetAppSignature возвращает подпись приложения
 func (c *Config) GetAppSignature() string {
-	return c.Security.AppSignature
+	return c.AppSignature
 }
 
 // GetConfigPath возвращает путь к файлу конфигурации приложения
@@ -113,7 +111,12 @@ func (c *Config) GetSSHConfigPath() string {
 
 // ValidateAppSignature проверяет подпись приложения
 func (c *Config) ValidateAppSignature() error {
-	if c.Security.AppSignature == "" {
+	// В development режиме пропускаем проверку подписи
+	if c.Env == DevEnv {
+		return nil
+	}
+
+	if c.AppSignature == "" {
 		return fmt.Errorf("подпись приложения не загружена")
 	}
 
