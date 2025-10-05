@@ -62,4 +62,3 @@ type MenuConfig struct {
 	ShowBack bool // Показывать кнопку "Назад"
 	ShowQuit bool // Показывать кнопку "Выход"
 }
-

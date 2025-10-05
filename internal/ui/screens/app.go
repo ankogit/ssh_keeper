@@ -100,15 +100,15 @@ func CreateMenuWithActions() *MainMenuScreen {
 					return ui.NavigateToCmd("settings")
 				},
 			},
-			{
-				Title:       "Справка",
-				Description: "Помощь по использованию приложения",
-				Shortcut:    "4",
-				Action: func() tea.Cmd {
-					// TODO: Реализовать экран справки
-					return nil
-				},
-			},
+			// {
+			// 	Title:       "Справка",
+			// 	Description: "Помощь по использованию приложения",
+			// 	Shortcut:    "4",
+			// 	Action: func() tea.Cmd {
+			// 		// TODO: Реализовать экран справки
+			// 		return nil
+			// 	},
+			// },
 			{
 				Title:       "Выход",
 				Description: "Закрыть приложение",
