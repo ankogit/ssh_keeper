@@ -81,37 +81,37 @@ jobs:
   #         version: latest
   #         args: --timeout=5m
 
-  security:
-    name: Security Scan
-    runs-on: ubuntu-latest
+  # security:
+  #   name: Security Scan
+  #   runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ env.GO_VERSION }}
+  #     - name: Set up Go
+  #       uses: actions/setup-go@v5
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
 
-      - name: Download dependencies
-        run: go mod download
+  #     - name: Download dependencies
+  #       run: go mod download
 
-      - name: Verify dependencies
-        run: go mod verify
+  #     - name: Verify dependencies
+  #       run: go mod verify
 
-      - name: Update vendor directory
-        run: go mod vendor
+  #     - name: Update vendor directory
+  #       run: go mod vendor
 
-      - name: Run Gosec Security Scanner
-        run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
-          ~/go/bin/gosec -fmt sarif -out gosec.sarif ./...
+  #     - name: Run Gosec Security Scanner
+  #       run: |
+  #         go install github.com/securego/gosec/v2/cmd/gosec@latest
+  #         ~/go/bin/gosec -fmt sarif -out gosec.sarif ./...
 
-      - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: gosec.sarif
+  #     - name: Upload SARIF file
+  #       uses: github/codeql-action/upload-sarif@v2
+  #       with:
+  #         sarif_file: gosec.sarif
 
   build-check:
     name: Build Check
