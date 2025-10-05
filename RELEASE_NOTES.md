@@ -1,8 +1,25 @@
-# SSH Keeper v0.1.0 Release Notes
+# SSH Keeper v0.1.6 Release Notes
 
-## 🎉 Initial Release
+## 🎉 CI/CD Pipeline Release
 
-This is the first public release of SSH Keeper, a beautiful and secure CLI tool for managing SSH connections with a modern TUI interface.
+This release introduces a fully automated CI/CD pipeline with GitHub Actions, making SSH Keeper development more robust and reliable.
+
+## ✨ What's New
+
+### CI/CD Pipeline
+- 🚀 **Automated Builds** - GitHub Actions builds for all platforms automatically
+- 🔄 **Continuous Integration** - Automated testing and validation on every commit
+- 📦 **Automatic Releases** - Tag-based releases with artifacts
+- 🛡️ **Security Scanning** - Gosec security scanner integration (temporarily disabled)
+- ⚡ **Fast Feedback** - Quick build validation for developers
+
+### Previous Features (v0.1.0)
+- 🎨 **Beautiful TUI Interface** - Modern terminal user interface built with Bubble Tea
+- 🔐 **Secure Password Storage** - Master password with system keyring integration
+- 🔑 **Dual Authentication** - Support for both password and SSH key authentication
+- 📁 **Connection Management** - Add, edit, delete, and organize SSH connections
+- 🔍 **Smart Search** - Quick connection search and filtering
+- 📤 **Export/Import** - Full compatibility with OpenSSH config format
 
 ## ✨ What's New
 
@@ -27,21 +44,33 @@ This is the first public release of SSH Keeper, a beautiful and secure CLI tool 
 
 ## 🚀 Installation
 
-### Quick Install
+### One-Line Install (Recommended)
+
+**macOS & Linux:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.sh | bash
+```
+
+**Windows:**
+```powershell
+iwr -useb https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.ps1 | iex
+```
+
+### Manual Download
 
 Download the appropriate package for your platform:
 
-- **macOS Intel**: `ssh-keeper-0.1.0-darwin-amd64.tar.gz`
-- **macOS Apple Silicon**: `ssh-keeper-0.1.0-darwin-arm64.tar.gz`
-- **Linux**: `ssh-keeper-0.1.0-linux-amd64.tar.gz`
-- **Windows**: `ssh-keeper-0.1.0-windows-amd64.zip`
+- **macOS Intel**: `ssh-keeper-0.1.6-darwin-amd64.tar.gz`
+- **macOS Apple Silicon**: `ssh-keeper-0.1.6-darwin-arm64.tar.gz`
+- **Linux**: `ssh-keeper-0.1.6-linux-amd64.tar.gz`
+- **Windows**: `ssh-keeper-0.1.6-windows-amd64.zip`
 
 ### Extract and Run
 
 ```bash
 # Extract the archive
-tar -xzf ssh-keeper-0.1.0-*.tar.gz  # Linux/macOS
-# or unzip ssh-keeper-0.1.0-windows-amd64.zip  # Windows
+tar -xzf ssh-keeper-0.1.6-*.tar.gz  # Linux/macOS
+# or unzip ssh-keeper-0.1.6-windows-amd64.zip  # Windows
 
 # Make executable (Linux/macOS)
 chmod +x ssh-keeper*
@@ -65,6 +94,22 @@ chmod +x ssh-keeper*
 5. **Export/Import**: Compatible with OpenSSH config format
 
 ## 🛠️ Development
+
+### CI/CD Pipeline
+
+SSH Keeper now uses GitHub Actions for automated CI/CD:
+
+- ✅ **Automated Testing** - Tests run on every push/PR
+- ✅ **Multi-platform Builds** - Linux, macOS, Windows
+- ✅ **Automatic Releases** - Tag-based releases with artifacts
+- ✅ **Security Scanning** - Code and dependency vulnerability checks
+- ✅ **Code Quality** - Linting and formatting checks
+
+**Create a release:**
+```bash
+git tag v0.1.7
+git push origin v0.1.7
+```
 
 ### Building from Source
 
