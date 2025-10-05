@@ -100,6 +100,7 @@ jobs:
             ./cmd/ssh-keeper
 
       - name: Create archive
+        shell: bash
         run: |
           if [ "${{ matrix.goos }}" = "windows" ]; then
             powershell "Compress-Archive -Path '${{ env.BINARY_NAME }}-${{ matrix.artifact_name }}.exe' -DestinationPath '${{ env.BINARY_NAME }}-${{ steps.version.outputs.version_clean }}-${{ matrix.artifact_name }}.${{ matrix.artifact_ext }}'"
