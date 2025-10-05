@@ -72,6 +72,7 @@ jobs:
           echo "version_clean=$(echo ${GITHUB_REF#refs/tags/} | sed 's/^v//')" >> $GITHUB_OUTPUT
 
       - name: Create production .env
+        shell: bash
         run: |
           cat > .env << EOF
           DEBUG=false

@@ -31,6 +31,7 @@ jobs:
           echo "version_clean=$(echo ${{ github.event.inputs.version }} | sed 's/^v//')" >> $GITHUB_OUTPUT
 
       - name: Create production .env
+        shell: bash
         run: |
           cat > .env << EOF
           DEBUG=false
