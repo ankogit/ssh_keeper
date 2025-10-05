@@ -67,20 +67,20 @@ jobs:
           fi
           echo "version_clean=$(echo ${GITHUB_REF#refs/tags/} | sed 's/^v//')" >> $GITHUB_OUTPUT
 
-      - name: Create production .env
-        run: |
-          cat > .env << EOF
-          DEBUG=false
-          ENV=production
-          CONFIG_PATH=~/.ssh-keeper/config
-          APP_SIGNATURE=ssh-keeper-sig-prod-${{ steps.version.outputs.version_clean }}
-          SSH_CONFIG_PATH=~/.ssh/config
-          APP_NAME=ssh-keeper
-          APP_VERSION=${{ steps.version.outputs.version_clean }}
-          APP_DESCRIPTION=SSH Connection Manager
-          LOG_LEVEL=info
-          LOG_FORMAT=text
-          EOF
+      # - name: Create production .env
+      #   run: |
+      #     cat > .env << EOF
+      #     DEBUG=false
+      #     ENV=production
+      #     CONFIG_PATH=~/.ssh-keeper/config
+      #     APP_SIGNATURE=ssh-keeper-sig-prod-${{ steps.version.outputs.version_clean }}
+      #     SSH_CONFIG_PATH=~/.ssh/config
+      #     APP_NAME=ssh-keeper
+      #     APP_VERSION=${{ steps.version.outputs.version_clean }}
+      #     APP_DESCRIPTION=SSH Connection Manager
+      #     LOG_LEVEL=info
+      #     LOG_FORMAT=text
+      #     EOF
 
       - name: Download dependencies
         run: go mod download
@@ -216,20 +216,20 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
 
-      - name: Create test .env
-        run: |
-          cat > .env << EOF
-          DEBUG=true
-          ENV=development
-          CONFIG_PATH=~/.ssh-keeper/config
-          APP_SIGNATURE=ssh-keeper-sig-test
-          SSH_CONFIG_PATH=~/.ssh/config
-          APP_NAME=ssh-keeper
-          APP_VERSION=test
-          APP_DESCRIPTION=SSH Connection Manager
-          LOG_LEVEL=debug
-          LOG_FORMAT=text
-          EOF
+      # - name: Create test .env
+      #   run: |
+      #     cat > .env << EOF
+      #     DEBUG=true
+      #     ENV=development
+      #     CONFIG_PATH=~/.ssh-keeper/config
+      #     APP_SIGNATURE=ssh-keeper-sig-test
+      #     SSH_CONFIG_PATH=~/.ssh/config
+      #     APP_NAME=ssh-keeper
+      #     APP_VERSION=test
+      #     APP_DESCRIPTION=SSH Connection Manager
+      #     LOG_LEVEL=debug
+      #     LOG_FORMAT=text
+      #     EOF
 
       - name: Run tests
         run: go test -v ./...
