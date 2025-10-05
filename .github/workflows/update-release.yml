@@ -24,6 +24,7 @@ jobs:
 
       - name: Get version
         id: version
+        shell: bash
         run: |
           echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
           echo "version_clean=$(echo ${{ github.event.inputs.version }} | sed 's/^v//')" >> $GITHUB_OUTPUT
