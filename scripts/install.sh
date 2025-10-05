@@ -14,7 +14,8 @@ NC='\033[0m' # No Color
 
 # Configuration
 REPO="ankogit/ssh_keeper"
-VERSION="v0.1.0"
+VERSION="0.1.0"
+VERSION_TAG="v0.1.0"
 INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="ssh-keeper"
 
@@ -43,7 +44,7 @@ detect_platform() {
 # Download and install
 install_ssh_keeper() {
     local platform=$(detect_platform)
-    local download_url="https://github.com/${REPO}/releases/download/${VERSION}/ssh-keeper-${VERSION}-${platform}"
+    local download_url="https://github.com/${REPO}/releases/download/${VERSION_TAG}/ssh-keeper-${VERSION}-${platform}"
     
     # Add extension for Windows
     if [[ "$platform" == "windows-amd64" ]]; then

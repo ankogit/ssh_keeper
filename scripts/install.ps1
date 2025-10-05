@@ -2,7 +2,8 @@
 # Usage: iwr -useb https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.ps1 | iex
 
 param(
-    [string]$Version = "v0.1.0",
+    [string]$Version = "0.1.0",
+    [string]$VersionTag = "v0.1.0",
     [string]$InstallDir = "$env:USERPROFILE\bin"
 )
 
@@ -32,7 +33,7 @@ function Get-Architecture {
 function Install-SSHKeeper {
     $arch = Get-Architecture
     $platform = "windows-$arch"
-    $downloadUrl = "https://github.com/$REPO/releases/download/$Version/ssh-keeper-$Version-$platform.zip"
+    $downloadUrl = "https://github.com/$REPO/releases/download/$VersionTag/ssh-keeper-$Version-$platform.zip"
     $filename = "ssh-keeper-$Version-$platform.zip"
     $binaryName = "ssh-keeper-$Version-$platform.exe"
     
