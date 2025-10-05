@@ -67,6 +67,23 @@ func isTerminal(file *os.File) bool {
 }
 
 func main() {
+	// Проверяем флаги командной строки
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "--version", "-v":
+			fmt.Printf("SSH Keeper version %s\n", version)
+			return
+		case "--help", "-h":
+			fmt.Printf("SSH Keeper - Secure SSH Connection Manager\n")
+			fmt.Printf("Version: %s\n", version)
+			fmt.Printf("\nUsage: ssh-keeper [options]\n")
+			fmt.Printf("\nOptions:\n")
+			fmt.Printf("  --version, -v    Show version information\n")
+			fmt.Printf("  --help, -h       Show this help message\n")
+			return
+		}
+	}
+
 	// ПРИНУДИТЕЛЬНО восстанавливаем терминал через reset в самом начале
 	restoreTerminal()
 
