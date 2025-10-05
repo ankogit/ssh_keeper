@@ -2,14 +2,27 @@
 # Usage: iwr -useb https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.ps1 | iex
 
 param(
-    [string]$Version = "0.1.0",
-    [string]$VersionTag = "v0.1.0",
     [string]$InstallDir = "$env:USERPROFILE\bin"
 )
 
 # Configuration
 $REPO = "ankogit/ssh_keeper"
 $BINARY_NAME = "ssh-keeper"
+
+# Get latest version from GitHub API
+function Get-LatestVersion {
+    try {
+        $response = Invoke-RestMethod -Uri "https://api.github.com/repos/$REPO/releases/latest"
+        return $response.tag_name
+    }
+    catch {
+        return "v0.1.0"  # fallback version
+    }
+}
+
+# Get version info
+$VersionTag = Get-LatestVersion
+$Version = $VersionTag -replace '^v', ''
 
 # Colors for output
 function Write-ColorOutput {

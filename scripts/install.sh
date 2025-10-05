@@ -14,10 +14,22 @@ NC='\033[0m' # No Color
 
 # Configuration
 REPO="ankogit/ssh_keeper"
-VERSION="0.1.0"
-VERSION_TAG="v0.1.0"
 INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="ssh-keeper"
+
+# Get latest version from GitHub API
+get_latest_version() {
+    local latest_tag=$(curl -s "https://api.github.com/repos/$REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+    if [ -z "$latest_tag" ]; then
+        echo "v0.1.0"  # fallback version
+    else
+        echo "$latest_tag"
+    fi
+}
+
+# Get version info
+VERSION_TAG=$(get_latest_version)
+VERSION=$(echo "$VERSION_TAG" | sed 's/^v//')
 
 # Detect OS and architecture
 detect_platform() {
