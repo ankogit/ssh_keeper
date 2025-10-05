@@ -1,96 +1,254 @@
-name: Release
+name: Build and Release
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release (e.g., v1.0.0)"
+        required: true
+        default: "v0.1.0"
+
+env:
+  GO_VERSION: "1.24"
+  BINARY_NAME: "ssh-keeper"
 
 jobs:
-  release:
-    runs-on: ubuntu-latest
+  build:
+    name: Build for ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: amd64
+            goos: linux
+            goarch: amd64
+            artifact_name: linux-amd64
+            artifact_ext: tar.gz
+          - os: macos-latest
+            arch: amd64
+            goos: darwin
+            goarch: amd64
+            artifact_name: darwin-amd64
+            artifact_ext: tar.gz
+          - os: macos-latest
+            arch: arm64
+            goos: darwin
+            goarch: arm64
+            artifact_name: darwin-arm64
+            artifact_ext: tar.gz
+          - os: windows-latest
+            arch: amd64
+            goos: windows
+            goarch: amd64
+            artifact_name: windows-amd64
+            artifact_ext: zip
+
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: ${{ env.GO_VERSION }}
 
       - name: Get version
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Build binaries
+        id: version
         run: |
-          mkdir -p dist
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+          echo "version_clean=$(echo ${GITHUB_REF#refs/tags/} | sed 's/^v//')" >> $GITHUB_OUTPUT
 
-          # Linux
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=${{ steps.get_version.outputs.VERSION }}" -o dist/ssh-keeper-linux-amd64 ./cmd/ssh-keeper
-
-          # macOS Intel
-          GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=${{ steps.get_version.outputs.VERSION }}" -o dist/ssh-keeper-darwin-amd64 ./cmd/ssh-keeper
-
-          # macOS Apple Silicon
-          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=${{ steps.get_version.outputs.VERSION }}" -o dist/ssh-keeper-darwin-arm64 ./cmd/ssh-keeper
-
-          # Windows
-          GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=${{ steps.get_version.outputs.VERSION }}" -o dist/ssh-keeper-windows-amd64.exe ./cmd/ssh-keeper
-
-      - name: Create archives
+      - name: Create production .env
         run: |
-          cd dist
+          cat > .env << EOF
+          DEBUG=false
+          ENV=production
+          CONFIG_PATH=~/.ssh-keeper/config
+          APP_SIGNATURE=ssh-keeper-sig-prod-${{ steps.version.outputs.version_clean }}
+          SSH_CONFIG_PATH=~/.ssh/config
+          APP_NAME=ssh-keeper
+          APP_VERSION=${{ steps.version.outputs.version_clean }}
+          APP_DESCRIPTION=SSH Connection Manager
+          LOG_LEVEL=info
+          LOG_FORMAT=text
+          EOF
 
-          # Linux
-          tar -czf ssh-keeper-${{ steps.get_version.outputs.VERSION }}-linux-amd64.tar.gz ssh-keeper-linux-amd64
-
-          # macOS Intel
-          tar -czf ssh-keeper-${{ steps.get_version.outputs.VERSION }}-darwin-amd64.tar.gz ssh-keeper-darwin-amd64
-
-          # macOS Apple Silicon
-          tar -czf ssh-keeper-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.tar.gz ssh-keeper-darwin-arm64
-
-          # Windows
-          zip ssh-keeper-${{ steps.get_version.outputs.VERSION }}-windows-amd64.zip ssh-keeper-windows-amd64.exe
-
-      - name: Create Debian package
+      - name: Build binary
         run: |
-          # Install dependencies
-          sudo apt-get update
-          sudo apt-get install -y devscripts debhelper
+          GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
+            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }}" \
+            -o ${{ env.BINARY_NAME }}-${{ matrix.artifact_name }} \
+            ./cmd/ssh-keeper
 
-          # Build Debian package
-          ./build-deb.sh
-
-          # Move to dist directory
-          mv ../*.deb dist/
-          mv ../*.changes dist/
-          mv ../*.dsc dist/
-
-      - name: Create Homebrew formula
+      - name: Create archive
         run: |
-          # Calculate SHA256 for the macOS ARM64 binary
-          SHA256=$(sha256sum dist/ssh-keeper-${{ steps.get_version.outputs.VERSION }}-darwin-arm64.tar.gz | cut -d' ' -f1)
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            zip ${{ env.BINARY_NAME }}-${{ steps.version.outputs.version_clean }}-${{ matrix.artifact_name }}.${{ matrix.artifact_ext }} ${{ env.BINARY_NAME }}-${{ matrix.artifact_name }}.exe
+          else
+            tar -czf ${{ env.BINARY_NAME }}-${{ steps.version.outputs.version_clean }}-${{ matrix.artifact_name }}.${{ matrix.artifact_ext }} ${{ env.BINARY_NAME }}-${{ matrix.artifact_name }}
+          fi
 
-          # Update formula with correct SHA256
-          sed -i "s/sha256 \"\"/sha256 \"$SHA256\"/" Formula/ssh-keeper.rb
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.BINARY_NAME }}-${{ steps.version.outputs.version_clean }}-${{ matrix.artifact_name }}
+          path: ${{ env.BINARY_NAME }}-${{ steps.version.outputs.version_clean }}-${{ matrix.artifact_name }}.${{ matrix.artifact_ext }}
 
-          # Copy formula to dist
-          cp Formula/ssh-keeper.rb dist/
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+          echo "version_clean=$(echo ${GITHUB_REF#refs/tags/} | sed 's/^v//')" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          find ./artifacts -name "*.tar.gz" -o -name "*.zip" | while read file; do
+            cp "$file" ./release-assets/
+          done
+
+      - name: Generate release notes
+        run: |
+          cat > release-notes.md << 'EOF'
+          ## 🎉 SSH Keeper ${{ steps.version.outputs.version_clean }} Release
+
+          ### ✨ What's New
+          - 🎨 **Beautiful TUI Interface** - Modern terminal user interface built with Bubble Tea
+          - 🔐 **Secure Password Storage** - Master password with system keyring integration
+          - 🔑 **Dual Authentication** - Support for both password and SSH key authentication
+          - 📁 **Connection Management** - Add, edit, delete, and organize SSH connections
+          - 🔍 **Smart Search** - Quick connection search and filtering
+          - 📤 **Export/Import** - Full compatibility with OpenSSH config format
+
+          ### 🚀 Installation
+
+          **One-line installation:**
+          ```bash
+          curl -fsSL https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.sh | bash
+          ```
+
+          **Windows (PowerShell):**
+          ```powershell
+          iwr -useb https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.ps1 | iex
+          ```
+
+          ### 📦 Downloads
+
+          - **macOS Intel**: `ssh-keeper-${{ steps.version.outputs.version_clean }}-darwin-amd64.tar.gz`
+          - **macOS Apple Silicon**: `ssh-keeper-${{ steps.version.outputs.version_clean }}-darwin-arm64.tar.gz`
+          - **Linux**: `ssh-keeper-${{ steps.version.outputs.version_clean }}-linux-amd64.tar.gz`
+          - **Windows**: `ssh-keeper-${{ steps.version.outputs.version_clean }}-windows-amd64.zip`
+
+          ### 🔒 Security Features
+          - All data encrypted with AES-256
+          - Master password stored in system keyring
+          - No sensitive data in plain text
+          - Memory cleared after use
+          - Open source for security audit
+
+          ### 📄 License
+          MIT License - see [LICENSE](LICENSE) file for details
+
+          ---
+          **Download now and start managing your SSH connections with style! 🚀**
+          EOF
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          files: |
-            dist/*.tar.gz
-            dist/*.zip
-            dist/*.deb
-            dist/*.changes
-            dist/*.dsc
-            dist/ssh-keeper.rb
-          generate_release_notes: true
+          tag_name: ${{ steps.version.outputs.version }}
+          name: SSH Keeper ${{ steps.version.outputs.version_clean }}
+          body_path: release-notes.md
+          files: ./release-assets/*
+          draft: false
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Create test .env
+        run: |
+          cat > .env << EOF
+          DEBUG=true
+          ENV=development
+          CONFIG_PATH=~/.ssh-keeper/config
+          APP_SIGNATURE=ssh-keeper-sig-test
+          SSH_CONFIG_PATH=~/.ssh/config
+          APP_NAME=ssh-keeper
+          APP_VERSION=test
+          APP_DESCRIPTION=SSH Connection Manager
+          LOG_LEVEL=debug
+          LOG_FORMAT=text
+          EOF
+
+      - name: Run tests
+        run: go test -v ./...
+
+      - name: Run tests with coverage
+        run: |
+          go test -v -coverprofile=coverage.out ./...
+          go tool cover -html=coverage.out -o coverage.html
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.html
+
+  lint:
+    name: Lint Code
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          args: --timeout=5m

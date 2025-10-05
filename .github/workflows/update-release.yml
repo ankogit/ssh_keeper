@@ -1,0 +1,88 @@
+name: Update Release Assets
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to update (e.g., v0.1.0)"
+        required: true
+        default: "v0.1.0"
+
+jobs:
+  update-release:
+    name: Update Release Assets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+
+      - name: Get version
+        id: version
+        run: |
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          echo "version_clean=$(echo ${{ github.event.inputs.version }} | sed 's/^v//')" >> $GITHUB_OUTPUT
+
+      - name: Create production .env
+        run: |
+          cat > .env << EOF
+          DEBUG=false
+          ENV=production
+          CONFIG_PATH=~/.ssh-keeper/config
+          APP_SIGNATURE=ssh-keeper-sig-prod-${{ steps.version.outputs.version_clean }}
+          SSH_CONFIG_PATH=~/.ssh/config
+          APP_NAME=ssh-keeper
+          APP_VERSION=${{ steps.version.outputs.version_clean }}
+          APP_DESCRIPTION=SSH Connection Manager
+          LOG_LEVEL=info
+          LOG_FORMAT=text
+          EOF
+
+      - name: Build all platforms
+        run: |
+          # Linux
+          GOOS=linux GOARCH=amd64 go build \
+            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }}" \
+            -o ssh-keeper-linux-amd64 ./cmd/ssh-keeper
+
+          # macOS Intel
+          GOOS=darwin GOARCH=amd64 go build \
+            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }}" \
+            -o ssh-keeper-darwin-amd64 ./cmd/ssh-keeper
+
+          # macOS Apple Silicon
+          GOOS=darwin GOARCH=arm64 go build \
+            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }}" \
+            -o ssh-keeper-darwin-arm64 ./cmd/ssh-keeper
+
+          # Windows
+          GOOS=windows GOARCH=amd64 go build \
+            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }}" \
+            -o ssh-keeper-windows-amd64.exe ./cmd/ssh-keeper
+
+      - name: Create archives
+        run: |
+          tar -czf ssh-keeper-${{ steps.version.outputs.version_clean }}-linux-amd64.tar.gz ssh-keeper-linux-amd64
+          tar -czf ssh-keeper-${{ steps.version.outputs.version_clean }}-darwin-amd64.tar.gz ssh-keeper-darwin-amd64
+          tar -czf ssh-keeper-${{ steps.version.outputs.version_clean }}-darwin-arm64.tar.gz ssh-keeper-darwin-arm64
+          zip ssh-keeper-${{ steps.version.outputs.version_clean }}-windows-amd64.zip ssh-keeper-windows-amd64.exe
+
+      - name: Update GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: SSH Keeper ${{ steps.version.outputs.version_clean }}
+          files: |
+            ssh-keeper-${{ steps.version.outputs.version_clean }}-linux-amd64.tar.gz
+            ssh-keeper-${{ steps.version.outputs.version_clean }}-darwin-amd64.tar.gz
+            ssh-keeper-${{ steps.version.outputs.version_clean }}-darwin-arm64.tar.gz
+            ssh-keeper-${{ steps.version.outputs.version_clean }}-windows-amd64.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

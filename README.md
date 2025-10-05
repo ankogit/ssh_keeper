@@ -42,6 +42,14 @@ curl -fsSL https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/ins
 iwr -useb https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.ps1 | iex
 ```
 
+> **✨ Features of the installer:**
+>
+> - 🔍 **Auto-detects** your OS and architecture
+> - 📥 **Downloads** the correct version automatically
+> - 🔧 **Installs** to system directory (`/usr/local/bin`)
+> - ✅ **Verifies** installation success
+> - 🎨 **Beautiful** colored output with progress
+
 ### Manual Download & Install
 
 Download the latest release for your platform:
@@ -66,6 +74,24 @@ chmod +x ssh-keeper*
 ```
 
 > **📖 Подробная инструкция по установке**: [INSTALL.md](INSTALL.md) | [macOS Apple Silicon](INSTALL_MACOS.md)
+
+### Uninstall
+
+**macOS & Linux:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/uninstall.sh | bash
+```
+
+**Manual uninstall:**
+
+```bash
+# Remove binary
+sudo rm /usr/local/bin/ssh-keeper
+
+# Remove configuration (optional)
+rm -rf ~/.ssh-keeper
+```
 
 ## 📸 Screenshots
 
@@ -258,6 +284,25 @@ make test
 # Run with coverage
 make test-coverage
 ```
+
+### CI/CD Pipeline
+
+SSH Keeper uses GitHub Actions for automated CI/CD:
+
+- ✅ **Automated Testing** - Tests run on every push/PR
+- ✅ **Multi-platform Builds** - Linux, macOS, Windows
+- ✅ **Automatic Releases** - Tag-based releases with artifacts
+- ✅ **Security Scanning** - Code and dependency vulnerability checks
+- ✅ **Code Quality** - Linting and formatting checks
+
+**Create a release:**
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+> **📖 CI/CD Documentation**: [CI_CD_DOCUMENTATION.md](CI_CD_DOCUMENTATION.md)
 
 ### Building
 
