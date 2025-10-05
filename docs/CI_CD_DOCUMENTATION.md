@@ -172,6 +172,34 @@ git push origin v0.1.0
 - Secure APP_SIGNATURE generation
 - No secrets in logs
 
+## ⚙️ GitHub Environment Setup
+
+### Required Environment Variables
+
+Для работы CI/CD pipeline нужно настроить environment variables в GitHub:
+
+1. **Перейти в Settings → Environments**
+2. **Создать/настроить environment "Production"**
+3. **Добавить переменную:**
+
+| Variable        | Value                       | Description                           |
+| --------------- | --------------------------- | ------------------------------------- |
+| `APP_SIGNATURE` | `ssh-keeper-prod-signature` | Production app signature for security |
+
+### Setup Instructions
+
+```bash
+# 1. Go to repository Settings
+# 2. Navigate to Environments
+# 3. Create/Edit "Production" environment
+# 4. Add environment variable:
+#    Name: APP_SIGNATURE
+#    Value: ssh-keeper-prod-signature
+# 5. Save changes
+```
+
+**Важно:** `APP_SIGNATURE` используется для защиты master password в system keyring. В production это должно быть уникальное значение.
+
 ## 📊 Pipeline Status
 
 | Workflow       | Status    | Triggers | Duration |

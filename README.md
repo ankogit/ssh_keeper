@@ -231,6 +231,18 @@ cp env.example .env
 | `APP_SIGNATURE`   | Application signature for security   | -                      | Yes      |
 | `SSH_CONFIG_PATH` | Path to SSH config file              | `~/.ssh/config`        | No       |
 
+### CI/CD Setup
+
+For production builds, configure GitHub Environment variables:
+
+1. Go to **Settings → Environments**
+2. Create/Edit **"Production"** environment
+3. Add environment variable:
+   - **Name:** `APP_SIGNATURE`
+   - **Value:** `ssh-keeper-prod-signature`
+
+See [CI/CD Documentation](docs/CI_CD_DOCUMENTATION.md) for detailed setup instructions.
+
 ## 🔒 Security
 
 SSH Keeper prioritizes security and follows best practices:

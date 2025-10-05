@@ -31,13 +31,39 @@ var (
 
 // restoreTerminal восстанавливает терминал после SSH сессий
 func restoreTerminal() {
-	cmd := exec.Command("reset")
+	// Проверяем, что мы в интерактивном терминале
+	if !isTerminal(os.Stdin) {
+		return
+	}
+
+	// Пробуем сначала tput reset, потом reset
+	cmd := exec.Command("tput", "reset")
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		fmt.Printf("Warning: Failed to reset terminal: %v\n", err)
+		// Fallback к обычному reset
+		cmd = exec.Command("reset")
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			// Игнорируем ошибки в неинтерактивных режимах
+			if isTerminal(os.Stdin) {
+				fmt.Printf("Warning: Failed to reset terminal: %v\n", err)
+			}
+		}
 	}
+}
+
+// isTerminal проверяет, является ли файл терминалом
+func isTerminal(file *os.File) bool {
+	stat, err := file.Stat()
+	if err != nil {
+		return false
+	}
+	// Проверяем что это символьное устройство И что это не pipe/redirect
+	return (stat.Mode()&os.ModeCharDevice) != 0 && file.Name() != "/dev/null"
 }
 
 func main() {
@@ -81,32 +107,27 @@ func main() {
 	// Восстанавливаем терминал после нормального завершения
 	restoreTerminal()
 
-	// Set up signal handler to restore terminal on exit
-	// c := make(chan os.Signal, 1)
-	// signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	// go func() {
-	// 	<-c
-	// 	fmt.Println("QQQQQQQQQQQ: Restoring terminal...")
-	// 	exec.Command("reset").Run()
-	// 	os.Exit(0)
-	// }()
-	exec.Command("reset").Run()
+	// Terminal will be restored by signal handler if needed
 }
 
 // initializeServices initializes all application services
 func initializeServices() error {
-	// Устанавливаем APP_SIGNATURE из встроенной переменной, если она есть
-	if appSignature != "" {
-		os.Setenv("APP_SIGNATURE", appSignature)
-	} else {
-		fmt.Printf("ERROR: APP_SIGNATURE not embedded in binary!\n")
-		return fmt.Errorf("APP_SIGNATURE not embedded in binary")
-	}
-
-	// Инициализируем конфигурацию
+	// Инициализируем конфигурацию (это загрузит .env файл если он есть)
 	cfg, err := config.Init()
 	if err != nil {
 		return fmt.Errorf("failed to initialize config: %w", err)
+	}
+
+	// Проверяем, есть ли APP_SIGNATURE в переменных окружения (из .env файла или CI)
+	if os.Getenv("APP_SIGNATURE") == "" {
+		// Если нет, используем встроенную переменную (из CI build)
+		if appSignature != "" {
+			os.Setenv("APP_SIGNATURE", appSignature)
+		} else {
+			fmt.Printf("ERROR: APP_SIGNATURE not found in environment or embedded in binary!\n")
+			fmt.Printf("For local development, create a .env file with APP_SIGNATURE=ssh-keeper-sig-dev\n")
+			return fmt.Errorf("APP_SIGNATURE not found")
+		}
 	}
 
 	// Получаем путь к конфигурации из настроек
