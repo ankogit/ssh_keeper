@@ -43,7 +43,7 @@ iwr -useb https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/inst
 ```
 
 > **🔄 Автоматическое обновление**: Скрипты автоматически определяют и скачивают последнюю версию релиза!
-> 
+>
 > **✨ Features of the installer:**
 >
 > - 🔍 **Auto-detects** your OS and architecture

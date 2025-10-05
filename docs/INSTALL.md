@@ -1,94 +1,134 @@
-# SSH Keeper Installation Guide
+# SSH Keeper - Инструкция по установке
 
-## Quick Installation
+## 🚀 Быстрая установка
 
-### One-line installation script:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/yourusername/ssh-keeper/main/scripts/install.sh | bash
-```
-
-## Manual Installation Methods
-
-### macOS (Homebrew)
+### macOS Apple Silicon (M1/M2/M3)
 
 ```bash
-# Add tap and install
-brew tap yourusername/ssh-keeper
-brew install ssh-keeper
-```
-
-### Ubuntu/Debian (apt)
-
-```bash
-# Download and install .deb package
-wget https://github.com/yourusername/ssh-keeper/releases/latest/download/ssh-keeper_0.1.0_amd64.deb
-sudo dpkg -i ssh-keeper_0.1.0_amd64.deb
-sudo apt-get install -f  # Fix dependencies if needed
-```
-
-### Manual Binary Installation
-
-#### Linux
-
-```bash
-# Download latest release
-wget https://github.com/yourusername/ssh-keeper/releases/latest/download/ssh-keeper-0.1.0-linux-amd64.tar.gz
-tar -xzf ssh-keeper-0.1.0-linux-amd64.tar.gz
-sudo mv ssh-keeper-linux-amd64 /usr/local/bin/ssh-keeper
-sudo chmod +x /usr/local/bin/ssh-keeper
-```
-
-#### macOS
-
-```bash
-# For Intel Macs
-wget https://github.com/yourusername/ssh-keeper/releases/latest/download/ssh-keeper-0.1.0-darwin-amd64.tar.gz
-tar -xzf ssh-keeper-0.1.0-darwin-amd64.tar.gz
-sudo mv ssh-keeper-darwin-amd64 /usr/local/bin/ssh-keeper
-sudo chmod +x /usr/local/bin/ssh-keeper
-
-# For Apple Silicon Macs
-wget https://github.com/yourusername/ssh-keeper/releases/latest/download/ssh-keeper-0.1.0-darwin-arm64.tar.gz
+# Скачать и установить
+curl -L -O https://github.com/ankogit/ssh_keeper/releases/download/v0.1.0/ssh-keeper-0.1.0-darwin-arm64.tar.gz
 tar -xzf ssh-keeper-0.1.0-darwin-arm64.tar.gz
-sudo mv ssh-keeper-darwin-arm64 /usr/local/bin/ssh-keeper
-sudo chmod +x /usr/local/bin/ssh-keeper
+chmod +x ssh-keeper-0.1.0-darwin-arm64
+sudo mv ssh-keeper-0.1.0-darwin-arm64 /usr/local/bin/ssh-keeper
+ssh-keeper
 ```
 
-#### Windows
+### macOS Intel
 
 ```bash
-# Download and extract
-wget https://github.com/yourusername/ssh-keeper/releases/latest/download/ssh-keeper-0.1.0-windows-amd64.zip
-unzip ssh-keeper-0.1.0-windows-amd64.zip
-# Move ssh-keeper-windows-amd64.exe to your PATH
+# Скачать и установить
+curl -L -O https://github.com/ankogit/ssh_keeper/releases/download/v0.1.0/ssh-keeper-0.1.0-darwin-amd64.tar.gz
+tar -xzf ssh-keeper-0.1.0-darwin-amd64.tar.gz
+chmod +x ssh-keeper-0.1.0-darwin-amd64
+sudo mv ssh-keeper-0.1.0-darwin-amd64 /usr/local/bin/ssh-keeper
+ssh-keeper
 ```
 
-## Verification
-
-After installation, verify that ssh-keeper is working:
+### Linux
 
 ```bash
+# Скачать и установить
+curl -L -O https://github.com/ankogit/ssh_keeper/releases/download/v0.1.0/ssh-keeper-0.1.0-linux-amd64.tar.gz
+tar -xzf ssh-keeper-0.1.0-linux-amd64.tar.gz
+chmod +x ssh-keeper-0.1.0-linux-amd64
+sudo mv ssh-keeper-0.1.0-linux-amd64 /usr/local/bin/ssh-keeper
+ssh-keeper
+```
+
+### Windows
+
+```powershell
+# Скачать архив
+Invoke-WebRequest -Uri "https://github.com/ankogit/ssh_keeper/releases/download/v0.1.0/ssh-keeper-0.1.0-windows-amd64.zip" -OutFile "ssh-keeper-0.1.0-windows-amd64.zip"
+
+# Распаковать архив
+Expand-Archive -Path "ssh-keeper-0.1.0-windows-amd64.zip" -DestinationPath "ssh-keeper"
+
+# Перейти в папку и запустить
+cd ssh-keeper
+.\ssh-keeper-0.1.0-windows-amd64.exe
+```
+
+## 🔧 Альтернативная установка (в домашнюю папку)
+
+### macOS/Linux
+
+```bash
+# Создать папку для бинарников
+mkdir -p ~/bin
+
+# Скачать и установить
+curl -L -O https://github.com/ankogit/ssh_keeper/releases/download/v0.1.0/ssh-keeper-0.1.0-darwin-arm64.tar.gz
+tar -xzf ssh-keeper-0.1.0-darwin-arm64.tar.gz
+mv ssh-keeper-0.1.0-darwin-arm64 ~/bin/ssh-keeper
+
+# Добавить в PATH
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.zshrc
+source ~/.zshrc
+
+# Запустить
+ssh-keeper
+```
+
+## 📋 Проверка установки
+
+```bash
+# Проверить что установлен
+which ssh-keeper
+
+# Проверить версию
 ssh-keeper --version
+
+# Запустить
+ssh-keeper
 ```
 
-## Uninstallation
+## 🎯 Первый запуск
 
-### Homebrew
+1. **Установите мастер-пароль** для защиты подключений
+2. **Добавьте первое подключение** через "➕ Add Connection"
+3. **Настройте подключение**:
+   - Имя подключения
+   - Хост (IP или домен)
+   - Порт (обычно 22)
+   - Пользователь
+   - Тип аутентификации (пароль/SSH ключ)
 
+## 🚨 Решение проблем
+
+### macOS: "Cannot be opened because it is from an unidentified developer"
 ```bash
-brew uninstall ssh-keeper
-brew untap yourusername/ssh-keeper
+sudo xattr -rd com.apple.quarantine ssh-keeper-0.1.0-darwin-arm64
 ```
 
-### apt
-
+### Linux: "Permission denied"
 ```bash
-sudo apt-get remove ssh-keeper
+chmod +x ssh-keeper-0.1.0-linux-amd64
 ```
 
-### Manual
+### Windows: "Windows protected your PC"
+- Нажмите "More info" → "Run anyway"
 
+## 🗑️ Удаление
+
+### macOS/Linux
 ```bash
 sudo rm /usr/local/bin/ssh-keeper
+# или
+rm ~/bin/ssh-keeper
 ```
+
+### Windows
+```powershell
+Remove-Item "C:\path\to\ssh-keeper-0.1.0-windows-amd64.exe"
+```
+
+## 📚 Дополнительная информация
+
+- **Документация**: [README.md](README.md)
+- **Релиз**: [GitHub Releases](https://github.com/ankogit/ssh_keeper/releases)
+- **Исходный код**: [GitHub Repository](https://github.com/ankogit/ssh_keeper)
+
+---
+
+**Готово! Наслаждайтесь использованием SSH Keeper! 🚀**
