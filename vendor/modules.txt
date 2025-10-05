@@ -1,8 +1,6 @@
 # al.essio.dev/pkg/shellescape v1.5.1
 ## explicit; go 1.18
 al.essio.dev/pkg/shellescape
-# github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
-## explicit; go 1.13
 # github.com/atotto/clipboard v0.1.4
 ## explicit
 github.com/atotto/clipboard
@@ -89,8 +87,6 @@ github.com/rivo/uniseg
 # github.com/sahilm/fuzzy v0.1.1
 ## explicit
 github.com/sahilm/fuzzy
-# github.com/tebeka/atexit v0.3.0
-## explicit; go 1.13
 # github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e
 ## explicit; go 1.19
 github.com/xo/terminfo
