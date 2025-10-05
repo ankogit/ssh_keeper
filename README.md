@@ -101,23 +101,18 @@ rm -rf ~/.ssh-keeper
 
 ### Main Menu
 
-![Main Menu](docs/screenshots/main-menu.png)
+![Main Menu](docs/screenshots/menu.png)
 _Beautiful main menu with intuitive navigation_
 
 ### Connection List
 
-![Connection List](docs/screenshots/connections.png)
+![Connection List](docs/screenshots/list.png)
 _View and manage your SSH connections_
 
 ### Add Connection
 
-![Add Connection](docs/screenshots/add-connection.png)
+![Add Connection](docs/screenshots/add.png)
 _Easy connection setup with form validation_
-
-### Settings
-
-![Settings](docs/screenshots/settings.png)
-_Configure your SSH Keeper preferences_
 
 ## 🛠️ Installation
 

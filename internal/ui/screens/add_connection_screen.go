@@ -149,6 +149,9 @@ func NewAddConnectionScreen() *AddConnectionScreen {
 		ready:          false,
 	}
 
+	// Инициализируем видимость полей
+	screen.updateFieldVisibility()
+
 	// Устанавливаем фокус на первое поле сразу
 	screen.formManager.SetCurrentField(components.FieldNameName)
 	screen.formManager.UpdateFocus()
@@ -305,12 +308,6 @@ func (acs *AddConnectionScreen) View() string {
 	// Подготавливаем содержимое viewport
 	viewportContent := acs.viewport.View()
 
-	// Добавляем сообщения в начало
-	messages := acs.messageManager.RenderMessages(80) // Используем фиксированную ширину
-	if messages != "" {
-		viewportContent = messages + viewportContent
-	}
-
 	// Добавляем индикатор прокрутки под viewport если не дошли до конца
 	if !acs.viewport.AtBottom() {
 		// Создаем более информативный индикатор прокрутки
@@ -321,6 +318,12 @@ func (acs *AddConnectionScreen) View() string {
 
 		// Добавляем индикатор под содержимое viewport
 		viewportContent += "\n" + scrollIndicator
+	}
+
+	// Добавляем сообщения в конец
+	messages := acs.messageManager.RenderMessages(80) // Используем фиксированную ширину
+	if messages != "" {
+		viewportContent += "\n" + messages
 	}
 
 	// Устанавливаем содержимое с индикатором
