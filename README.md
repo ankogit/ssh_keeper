@@ -31,11 +31,13 @@ _Built with ❤️ using [Bubble Tea](https://github.com/charmbracelet/bubbletea
 ### One-line Installation (Recommended)
 
 **macOS & Linux:**
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.sh | bash
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 iwr -useb https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.ps1 | iex
 ```

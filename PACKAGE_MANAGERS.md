@@ -55,7 +55,7 @@ name: ssh-keeper
 version: '0.1.0'
 summary: SSH Connection Manager with secure password storage
 description: |
-  A beautiful and secure CLI tool for managing SSH connections 
+  A beautiful and secure CLI tool for managing SSH connections
   with a modern TUI interface.
 
 grade: stable
@@ -127,16 +127,19 @@ parts:
 ### Однострочные команды
 
 **macOS & Linux:**
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.sh | bash
 ```
 
 **Windows (PowerShell):**
+
 ```powershell
 iwr -useb https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.ps1 | iex
 ```
 
 **Windows (CMD):**
+
 ```cmd
 powershell -Command "iwr -useb https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.ps1 | iex"
 ```
@@ -144,22 +147,26 @@ powershell -Command "iwr -useb https://raw.githubusercontent.com/ankogit/ssh_kee
 ### Через пакетные менеджеры
 
 **Homebrew (macOS):**
+
 ```bash
 brew tap ankogit/ssh-keeper
 brew install ssh-keeper
 ```
 
 **Snap (Linux):**
+
 ```bash
 sudo snap install ssh-keeper
 ```
 
 **Chocolatey (Windows):**
+
 ```cmd
 choco install ssh-keeper
 ```
 
 **Scoop (Windows):**
+
 ```powershell
 scoop install ssh-keeper
 ```
