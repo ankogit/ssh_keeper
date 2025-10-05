@@ -16,6 +16,7 @@ const (
 	FieldTypePort
 	FieldTypePassword
 	FieldTypeBool
+	FieldTypeButton
 )
 
 // FieldConfig содержит конфигурацию поля
@@ -27,17 +28,19 @@ type FieldConfig struct {
 	MaxLength   int
 	Placeholder string
 	FieldType   FieldType
+	Style       string // Стиль для кнопок: "default", "warning", "error", "success"
 }
 
 // FormField представляет универсальное поле формы
 type FormField struct {
-	config    FieldConfig
-	input     textinput.Model
-	boolField *BoolField
-	value     string
-	hasError  bool
-	focused   bool
-	visible   bool
+	config      FieldConfig
+	input       textinput.Model
+	boolField   *BoolField
+	buttonField *ButtonField
+	value       string
+	hasError    bool
+	focused     bool
+	visible     bool
 }
 
 // NewFormField создает новое поле формы
@@ -53,6 +56,12 @@ func NewFormField(config FieldConfig) *FormField {
 	case FieldTypeBool:
 		field.boolField = NewBoolField(config.Label)
 		field.boolField.SetWidth(config.Width)
+	case FieldTypeButton:
+		field.buttonField = NewButtonField(config.Label)
+		field.buttonField.SetWidth(config.Width)
+		if config.Style != "" {
+			field.buttonField.SetStyle(config.Style)
+		}
 	default:
 		field.input = textinput.New()
 		field.input.Placeholder = config.Placeholder
@@ -91,6 +100,8 @@ func (ff *FormField) Focus() {
 	switch ff.config.FieldType {
 	case FieldTypeBool:
 		ff.boolField.Focus()
+	case FieldTypeButton:
+		ff.buttonField.Focus()
 	default:
 		ff.input.Focus()
 	}
@@ -102,6 +113,8 @@ func (ff *FormField) Blur() {
 	switch ff.config.FieldType {
 	case FieldTypeBool:
 		ff.boolField.Blur()
+	case FieldTypeButton:
+		ff.buttonField.Blur()
 	default:
 		ff.input.Blur()
 	}
@@ -115,6 +128,8 @@ func (ff *FormField) Value() string {
 			return "true"
 		}
 		return "false"
+	case FieldTypeButton:
+		return ff.buttonField.Value()
 	default:
 		return ff.input.Value()
 	}
@@ -228,13 +243,24 @@ func (ff *FormField) Render() string {
 	switch ff.config.FieldType {
 	case FieldTypeBool:
 		fieldContent = ff.boolField.View()
+	case FieldTypeButton:
+		fieldContent = ff.buttonField.View()
 	default:
 		fieldContent = fieldStyle.Render(ff.input.View())
 	}
 
 	// Рендерим лейбл
-	labelContent := labelStyle.Render(ff.config.Label + ":")
+	var labelContent string
+	if ff.config.FieldType == FieldTypeButton {
+		// Для кнопки не показываем лейбл отдельно
+		labelContent = ""
+	} else {
+		labelContent = labelStyle.Render(ff.config.Label + ":")
+	}
 
+	if labelContent == "" {
+		return fieldContent
+	}
 	return lipgloss.JoinHorizontal(lipgloss.Center, labelContent, fieldContent)
 }
 
@@ -251,4 +277,14 @@ func (ff *FormField) SetTextInput(input textinput.Model) {
 	if ff.config.FieldType != FieldTypeBool {
 		ff.input = input
 	}
+}
+
+// IsButton проверяет, является ли поле кнопкой
+func (ff *FormField) IsButton() bool {
+	return ff.config.FieldType == FieldTypeButton
+}
+
+// GetName возвращает имя поля
+func (ff *FormField) GetName() string {
+	return ff.config.Name
 }

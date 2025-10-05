@@ -1,0 +1,54 @@
+# SSH Keeper Configuration File
+# Generated on 2024-01-15T10:30:00Z
+# Version: 1.0
+
+# Global Settings
+ServerAliveInterval 60
+ServerAliveCountMax 3
+
+# Test Server (Password Auth)
+Host test-server
+    HostName 213.165.35.209
+    Port 22
+    User root
+    Password encrypted_password_here
+    StrictHostKeyChecking ask
+    # SSH Keeper ID: 1
+    # Created: 2024-01-15T10:30:00Z
+    # Updated: 2024-01-15T10:30:00Z
+
+# Test Server 2 (SSH Key)
+Host test-server-2
+    HostName 95.216.195.202
+    Port 22
+    User root
+    IdentityFile ~/.ssh/id_rsa
+    StrictHostKeyChecking ask
+    # SSH Keeper ID: 1b
+    # Created: 2024-01-15T10:30:00Z
+    # Updated: 2024-01-15T10:30:00Z
+
+# Development Server
+Host dev-server
+    HostName dev.example.com
+    Port 2222
+    User developer
+    Password encrypted_password_here
+    StrictHostKeyChecking ask
+    # SSH Keeper ID: 2
+    # Created: 2024-01-15T10:30:00Z
+    # Updated: 2024-01-15T10:30:00Z
+
+# Staging Environment
+Host staging
+    HostName staging.example.com
+    Port 22
+    User deploy
+    IdentityFile ~/.ssh/staging_key
+    StrictHostKeyChecking ask
+    # SSH Keeper ID: 3
+    # Created: 2024-01-15T10:30:00Z
+    # Updated: 2024-01-15T10:30:00Z
+
+
+

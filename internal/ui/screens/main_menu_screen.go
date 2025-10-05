@@ -86,15 +86,6 @@ func NewMainMenuScreenWithConfig(config ui.MenuConfig) *MainMenuScreen {
 	}
 }
 
-// convertToListItem конвертирует MenuItem в list.Item
-func convertToListItem(menuItems []ui.MenuItem) []list.Item {
-	items := make([]list.Item, len(menuItems))
-	for i, item := range menuItems {
-		items[i] = item
-	}
-	return items
-}
-
 // Update обрабатывает обновления состояния
 func (mms *MainMenuScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd

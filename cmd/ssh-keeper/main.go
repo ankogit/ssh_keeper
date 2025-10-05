@@ -6,8 +6,10 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strings"
 	"syscall"
 
+	"ssh-keeper/internal/config"
 	"ssh-keeper/internal/services"
 	"ssh-keeper/internal/ui/screens"
 
@@ -21,7 +23,21 @@ var (
 	connectionService *services.ConnectionService
 )
 
+// restoreTerminal восстанавливает терминал после SSH сессий
+func restoreTerminal() {
+	cmd := exec.Command("reset")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("Warning: Failed to reset terminal: %v\n", err)
+	}
+}
+
 func main() {
+	// ПРИНУДИТЕЛЬНО восстанавливаем терминал через reset в самом начале
+	restoreTerminal()
+
 	// Set up terminal environment
 	lipgloss.SetColorProfile(termenv.ColorProfile())
 
@@ -55,31 +71,65 @@ func main() {
 		restoreTerminal()
 		os.Exit(1)
 	}
+
+	// Восстанавливаем терминал после нормального завершения
+	restoreTerminal()
+
+	// Set up signal handler to restore terminal on exit
+	// c := make(chan os.Signal, 1)
+	// signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	// go func() {
+	// 	<-c
+	// 	fmt.Println("QQQQQQQQQQQ: Restoring terminal...")
+	// 	exec.Command("reset").Run()
+	// 	os.Exit(0)
+	// }()
+	exec.Command("reset").Run()
 }
 
 // initializeServices initializes all application services
 func initializeServices() error {
-	// Get user home directory
-	homeDir, err := os.UserHomeDir()
+	// Инициализируем конфигурацию
+	cfg, err := config.Init()
 	if err != nil {
-		return fmt.Errorf("failed to get user home directory: %w", err)
+		return fmt.Errorf("failed to initialize config: %w", err)
 	}
 
-	// Create SSH Keeper config directory
-	configDir := filepath.Join(homeDir, ".ssh-keeper")
+	// Получаем путь к конфигурации из настроек
+	configPath := cfg.GetConfigPath()
+
+	// Разворачиваем ~ в полный путь
+	if strings.HasPrefix(configPath, "~/") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("failed to get user home directory: %w", err)
+		}
+		configPath = filepath.Join(homeDir, configPath[2:])
+	}
+
+	// Создаем директорию конфигурации если она не существует
+	configDir := filepath.Dir(configPath)
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
 
-	// Set config file path
-	configPath := filepath.Join(configDir, "config")
+	// Initialize master password service
+	masterPasswordService := services.NewMasterPasswordService()
+	services.SetGlobalMasterPasswordService(masterPasswordService)
 
-	// For now, use a simple master key
-	// In production, this should be derived from user input or stored securely
-	masterKey := "ssh-keeper-default-key-2024"
+	// Initialize encryption service
+	encryptionService := services.NewEncryptionService(masterPasswordService)
+	services.SetGlobalEncryptionService(encryptionService)
+
+	// If master password is already initialized with signature, refresh the encryption key
+	if services.IsMasterPasswordInitializedWithSignature() {
+		if err := encryptionService.RefreshKey(); err != nil {
+			fmt.Printf("Warning: Failed to refresh encryption key: %v\n", err)
+		}
+	}
 
 	// Initialize connection service
-	connectionService = services.NewConnectionService(configPath, masterKey)
+	connectionService = services.NewConnectionService(configPath)
 
 	// Initialize with sample data if no config exists
 	if err := connectionService.InitializeWithSampleData(); err != nil {
@@ -95,34 +145,4 @@ func initializeServices() error {
 // GetConnectionService returns the global connection service
 func GetConnectionService() *services.ConnectionService {
 	return connectionService
-}
-
-// restoreTerminal восстанавливает терминал при выходе
-func restoreTerminal() {
-	// Радикальное восстановление терминала
-	fmt.Print("\033[?1049l") // Выход из альтернативного буфера
-	fmt.Print("\033[?25h")   // Показать курсор
-	fmt.Print("\033[?2004l") // Отключаем bracketed paste mode
-	fmt.Print("\033[?1l")    // Отключаем application cursor keys
-	fmt.Print("\033[?7h")    // Включаем auto wrap mode
-	fmt.Print("\033[?12l")   // Отключаем local echo
-	fmt.Print("\033[?1000l") // Отключаем mouse reporting
-	fmt.Print("\033[?1001l") // Отключаем mouse reporting
-	fmt.Print("\033[?1002l") // Отключаем mouse reporting
-	fmt.Print("\033[?1003l") // Отключаем mouse reporting
-	fmt.Print("\033[?1005l") // Отключаем mouse reporting
-	fmt.Print("\033[?1006l") // Отключаем mouse reporting
-	fmt.Print("\033[?1015l") // Отключаем mouse reporting
-	fmt.Print("\033[?25h")   // Показать курсор
-	fmt.Print("\033[0m")     // Сбрасываем все атрибуты
-	fmt.Print("\033c")       // Полный сброс терминала
-	fmt.Print("\033[2J")     // Очищаем экран
-	fmt.Print("\033[H")      // Перемещаем курсор в начало
-	fmt.Print("\033[?25h")   // Показать курсор
-	fmt.Print("\033[0m")     // Сбрасываем все атрибуты
-
-	// Радикальная защита через reset и stty
-	exec.Command("reset").Run()
-	exec.Command("stty", "sane").Run()
-	exec.Command("tput", "reset").Run()
 }

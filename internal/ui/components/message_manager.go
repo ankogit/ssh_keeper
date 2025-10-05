@@ -3,6 +3,7 @@ package components
 import (
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -108,7 +109,7 @@ func (mm *MessageManager) RenderMessages(width int) string {
 		rendered = append(rendered, mm.renderMessage(msg, width))
 	}
 
-	return fmt.Sprintf("%s\n", fmt.Sprintf("%s", rendered))
+	return lipgloss.JoinVertical(lipgloss.Left, rendered...)
 }
 
 // renderMessage отображает одно сообщение
@@ -143,9 +144,13 @@ func (mm *MessageManager) renderMessage(msg Message, width int) string {
 		icon = "ℹ"
 	}
 
-	// Ограничиваем ширину сообщения
-	if width > 0 && len(msg.Text) > width-10 {
-		msg.Text = msg.Text[:width-10] + "..."
+	// Ограничиваем ширину сообщения только для информационных сообщений
+	if width > 0 && utf8.RuneCountInString(msg.Text) > width-10 && msg.Type == MessageTypeInfo {
+		// Обрезаем по символам UTF-8, а не по байтам
+		runes := []rune(msg.Text)
+		if len(runes) > width-10 {
+			msg.Text = string(runes[:width-10]) + "..."
+		}
 	}
 
 	return style.Render(fmt.Sprintf("%s %s", icon, msg.Text))

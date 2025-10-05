@@ -120,8 +120,16 @@ func (scs *SSHConfigService) LoadConfig() (*models.SSHConfig, error) {
 				if count, err := strconv.Atoi(value); err == nil {
 					currentHost.ServerAliveCountMax = count
 				}
-			case "id":
+			case "ID":
 				currentHost.ID = value
+			case "CreatedAt":
+				if t, err := time.Parse(time.RFC3339, value); err == nil {
+					currentHost.CreatedAt = t
+				}
+			case "UpdatedAt":
+				if t, err := time.Parse(time.RFC3339, value); err == nil {
+					currentHost.UpdatedAt = t
+				}
 			}
 		}
 	}
@@ -211,13 +219,13 @@ func (scs *SSHConfigService) SaveConfig(config *models.SSHConfig) error {
 
 		// SSH Keeper metadata
 		if host.ID != "" {
-			fmt.Fprintf(writer, "    # SSH Keeper ID: %s\n", host.ID)
+			fmt.Fprintf(writer, "    ID %s\n", host.ID)
 		}
 		if host.CreatedAt != (time.Time{}) {
-			fmt.Fprintf(writer, "    # Created: %s\n", host.CreatedAt.Format(time.RFC3339))
+			fmt.Fprintf(writer, "    CreatedAt %s\n", host.CreatedAt.Format(time.RFC3339))
 		}
 		if host.UpdatedAt != (time.Time{}) {
-			fmt.Fprintf(writer, "    # Updated: %s\n", host.UpdatedAt.Format(time.RFC3339))
+			fmt.Fprintf(writer, "    UpdatedAt %s\n", host.UpdatedAt.Format(time.RFC3339))
 		}
 
 		fmt.Fprintf(writer, "\n")

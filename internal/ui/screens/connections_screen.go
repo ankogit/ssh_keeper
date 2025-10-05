@@ -47,7 +47,7 @@ func NewConnectionsScreen() *ConnectionsScreen {
 	l.SetShowStatusBar(false)
 	l.SetFilteringEnabled(false) // Отключаем встроенную фильтрацию
 	l.SetShowHelp(false)         // Отключаем встроенную справку
-	
+
 	// Отключаем обработку клавиши 'q' в списке
 	l.KeyMap.Quit.SetKeys("ctrl+q") // Меняем с "q" на "ctrl+q"
 
@@ -95,6 +95,20 @@ func (cs *ConnectionsScreen) refreshConnections() {
 	// Обновляем список
 	cs.allItems = listItems
 	cs.list.SetItems(listItems)
+}
+
+// editSelectedConnection редактирует выбранное подключение
+func (cs *ConnectionsScreen) editSelectedConnection() tea.Cmd {
+	selectedItem := cs.list.SelectedItem()
+	if item, ok := selectedItem.(components.ConnectionItem); ok {
+		conn := item.GetConnection()
+		// Добавляем отладочную информацию
+		cs.messageManager.AddInfo(fmt.Sprintf("Редактируем подключение: %s (ID: %s)", conn.Name, conn.ID))
+		// Переходим к экрану редактирования с данными подключения
+		return ui.NavigateToWithDataCmd("edit_connection", conn)
+	}
+	cs.messageManager.AddError("Не удалось получить данные подключения")
+	return nil
 }
 
 // deleteSelectedConnection удаляет выбранное подключение
@@ -150,9 +164,8 @@ func (cs *ConnectionsScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+a":
 			// TODO: Добавить новое подключение
 		case "ctrl+e":
-			fmt.Println("Редактирование выбранного подключения")
-
-			// TODO: Редактировать выбранное подключение
+			// Редактировать выбранное подключение
+			return cs, cs.editSelectedConnection()
 		case "ctrl+d":
 			// Удалить выбранное подключение
 			return cs, cs.deleteSelectedConnection()
@@ -333,7 +346,12 @@ func (cs *ConnectionsScreen) restoreTerminal() {
 	fmt.Print("\033[0m")     // Сбрасываем все атрибуты
 
 	// Радикальная защита через reset и stty
-	exec.Command("reset").Run()
+	cmd := exec.Command("reset")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+
 	exec.Command("stty", "sane").Run()
 	exec.Command("tput", "reset").Run()
 }

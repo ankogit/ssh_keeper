@@ -16,3 +16,5 @@ override_dh_auto_install:
 	cp ssh-keeper debian/ssh-keeper/usr/bin/
 	chmod 755 debian/ssh-keeper/usr/bin/ssh-keeper
 
+
+

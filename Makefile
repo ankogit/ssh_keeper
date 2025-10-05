@@ -125,7 +125,7 @@ release: build-all
 # Create Debian package
 deb: build
 	@echo "$(BLUE)Creating Debian package...$(NC)"
-	@./build-deb.sh
+	@./scripts/build-deb.sh
 	@echo "$(GREEN)Debian package created!$(NC)"
 
 # Create Homebrew formula
@@ -186,4 +186,3 @@ help:
 	@echo "  github-release Create all release files"
 	@echo ""
 	@echo "$(YELLOW)Other commands:$(NC)"
-	@echo "  help         Show this help message"

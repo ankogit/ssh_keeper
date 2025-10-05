@@ -147,7 +147,7 @@ func (fm *FormManager) RenderForm() string {
 	instructions := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(styles.ColorMuted)).
 		Italic(styles.TextItalic).
-		Render("Tab - след. поле • ↑/↓ - прокрутка • Enter - сохранить • Ctrl+T - тест • Esc - назад")
+		Render("Tab - след. поле • ↑/↓ - прокрутка • Enter - сохранить • Ctrl+D - удалить • Esc - назад")
 	formContent = append(formContent, instructions)
 
 	return lipgloss.JoinVertical(lipgloss.Left, formContent...)

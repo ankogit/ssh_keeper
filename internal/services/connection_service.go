@@ -13,20 +13,19 @@ type ConnectionService struct {
 	sshConfigService  *SSHConfigService
 	encryptionService *EncryptionService
 	configPath        string
-	masterKey         string
 }
 
 // NewConnectionService создает новый сервис подключений
-func NewConnectionService(configPath, masterKey string) *ConnectionService {
+func NewConnectionService(configPath string) *ConnectionService {
 	sshConfigService := NewSSHConfigService(configPath)
-	encryptionService := NewEncryptionService(masterKey)
+	masterPasswordService := NewMasterPasswordService()
+	encryptionService := NewEncryptionService(masterPasswordService)
 
 	cs := &ConnectionService{
 		connections:       make([]models.Connection, 0),
 		sshConfigService:  sshConfigService,
 		encryptionService: encryptionService,
 		configPath:        configPath,
-		masterKey:         masterKey,
 	}
 
 	// Try to load connections from config file
@@ -47,14 +46,19 @@ func (cs *ConnectionService) LoadConnectionsFromFile() error {
 
 	connections := cs.sshConfigService.ConvertSSHConfigToConnections(config)
 
-	// Decrypt passwords
-	for i := range connections {
-		if connections[i].HasPassword && connections[i].Password != "" {
-			decryptedPassword, err := cs.encryptionService.DecryptPassword(connections[i].Password)
-			if err != nil {
-				return fmt.Errorf("failed to decrypt password for connection %s: %w", connections[i].ID, err)
+	// Decrypt passwords only if encryption service is initialized
+	if cs.encryptionService.IsInitialized() {
+		for i := range connections {
+			if connections[i].HasPassword && connections[i].Password != "" {
+				// Проверяем, является ли пароль зашифрованным (должен быть длинным и содержать base64 символы)
+				if len(connections[i].Password) >= 20 && isBase64Like(connections[i].Password) {
+					decryptedPassword, err := cs.encryptionService.DecryptPassword(connections[i].Password)
+					if err != nil {
+						return fmt.Errorf("failed to decrypt password for connection %s: %w", connections[i].ID, err)
+					}
+					connections[i].Password = decryptedPassword
+				}
 			}
-			connections[i].Password = decryptedPassword
 		}
 	}
 
@@ -68,14 +72,16 @@ func (cs *ConnectionService) SaveConnectionsToFile() error {
 	connectionsCopy := make([]models.Connection, len(cs.connections))
 	copy(connectionsCopy, cs.connections)
 
-	// Encrypt passwords before saving
-	for i := range connectionsCopy {
-		if connectionsCopy[i].HasPassword && connectionsCopy[i].Password != "" {
-			encryptedPassword, err := cs.encryptionService.EncryptPassword(connectionsCopy[i].Password)
-			if err != nil {
-				return fmt.Errorf("failed to encrypt password for connection %s: %w", connectionsCopy[i].ID, err)
+	// Encrypt passwords before saving (only if encryption service is initialized)
+	if cs.encryptionService.IsInitialized() {
+		for i := range connectionsCopy {
+			if connectionsCopy[i].HasPassword && connectionsCopy[i].Password != "" && len(connectionsCopy[i].Password) > 0 {
+				encryptedPassword, err := cs.encryptionService.EncryptPassword(connectionsCopy[i].Password)
+				if err != nil {
+					return fmt.Errorf("failed to encrypt password for connection %s: %w", connectionsCopy[i].ID, err)
+				}
+				connectionsCopy[i].Password = encryptedPassword
 			}
-			connectionsCopy[i].Password = encryptedPassword
 		}
 	}
 
@@ -176,6 +182,117 @@ func (cs *ConnectionService) ImportConfig(importPath string) error {
 	return cs.SaveConnectionsToFile()
 }
 
+// ExportConfigPlain exports connections to SSH config file without password encryption
+func (cs *ConnectionService) ExportConfigPlain(exportPath string) error {
+	exportService := NewSSHConfigService(exportPath)
+
+	// Create a copy of connections without encryption
+	connectionsCopy := make([]models.Connection, len(cs.connections))
+	copy(connectionsCopy, cs.connections)
+
+	// Decrypt passwords before export (only if encryption service is initialized)
+	if cs.encryptionService.IsInitialized() {
+		for i := range connectionsCopy {
+			if connectionsCopy[i].HasPassword && connectionsCopy[i].Password != "" && len(connectionsCopy[i].Password) > 0 {
+				// Check if password is encrypted (base64-like)
+				if len(connectionsCopy[i].Password) >= 20 && isBase64Like(connectionsCopy[i].Password) {
+					decryptedPassword, err := cs.encryptionService.DecryptPassword(connectionsCopy[i].Password)
+					if err == nil {
+						connectionsCopy[i].Password = decryptedPassword
+					}
+					// If decryption fails, keep the password as is (might be plaintext already)
+				}
+			}
+		}
+	}
+
+	config := cs.sshConfigService.ConvertConnectionsToSSHConfig(connectionsCopy)
+	return exportService.SaveConfig(config)
+}
+
+// ImportConfigPlain imports connections from SSH config file and encrypts passwords
+func (cs *ConnectionService) ImportConfigPlain(importPath string) error {
+	importService := NewSSHConfigService(importPath)
+	config, err := importService.LoadConfig()
+	if err != nil {
+		return fmt.Errorf("failed to load config from %s: %w", importPath, err)
+	}
+
+	importedConnections := importService.ConvertSSHConfigToConnections(config)
+
+	// Encrypt passwords if encryption service is initialized
+	if cs.encryptionService.IsInitialized() {
+		for i := range importedConnections {
+			if importedConnections[i].HasPassword && importedConnections[i].Password != "" {
+				// Check if password is already encrypted
+				if len(importedConnections[i].Password) < 20 || !isBase64Like(importedConnections[i].Password) {
+					// Password is plaintext, encrypt it
+					encryptedPassword, err := cs.encryptionService.EncryptPassword(importedConnections[i].Password)
+					if err != nil {
+						return fmt.Errorf("failed to encrypt password for connection %s: %w", importedConnections[i].Name, err)
+					}
+					importedConnections[i].Password = encryptedPassword
+				}
+			}
+		}
+	}
+
+	// Check for duplicate connections and add only new ones
+	var addedCount int
+	var skippedCount int
+
+	for _, conn := range importedConnections {
+		// Check if connection already exists
+		isDuplicate := false
+
+		// If connection has ID, check by ID
+		if conn.ID != "" {
+			for _, existingConn := range cs.connections {
+				if existingConn.ID == conn.ID {
+					isDuplicate = true
+					skippedCount++
+					break
+				}
+			}
+		} else {
+			// If no ID, check by combination of Host+Port+User+Name
+			for _, existingConn := range cs.connections {
+				if existingConn.Host == conn.Host &&
+					existingConn.Port == conn.Port &&
+					existingConn.User == conn.User &&
+					existingConn.Name == conn.Name {
+					isDuplicate = true
+					skippedCount++
+					break
+				}
+			}
+		}
+
+		if !isDuplicate {
+			// Generate new ID only if it's empty
+			if conn.ID == "" {
+				conn.ID = generateID()
+			}
+			conn.CreatedAt = time.Now()
+			conn.UpdatedAt = time.Now()
+			cs.connections = append(cs.connections, conn)
+			addedCount++
+		}
+	}
+
+	// Save all connections only if we added new ones
+	if addedCount > 0 {
+		return cs.SaveConnectionsToFile()
+	}
+
+	// If no new connections were added, return a specific error
+	if skippedCount > 0 {
+		return fmt.Errorf("all %d connections already exist (duplicates skipped)", skippedCount)
+	}
+
+	return nil
+}
+
 // GetConfigPath returns the current config file path
 func (cs *ConnectionService) GetConfigPath() string {
 	return cs.configPath
@@ -206,31 +323,6 @@ func (cs *ConnectionService) InitializeWithSampleData() error {
 // getSampleConnections returns sample connections for initial setup
 func (cs *ConnectionService) getSampleConnections() []models.Connection {
 	return []models.Connection{
-		{
-			ID:          "1",
-			Name:        "Test Server (Password Auth)",
-			Host:        "213.165.35.209",
-			Port:        22,
-			User:        "root",
-			KeyPath:     "",
-			UseSSHKey:   false, // Не использовать SSH ключ
-			HasPassword: true,
-			Password:    "yrw6hs1IsLxt",
-			CreatedAt:   time.Now().Add(-30 * 24 * time.Hour),
-			UpdatedAt:   time.Now().Add(-7 * 24 * time.Hour),
-		},
-		{
-			ID:          "1b",
-			Name:        "Test Server 2 (SSH Key)",
-			Host:        "95.216.195.202",
-			Port:        22,
-			User:        "root",
-			KeyPath:     "",   // Пустой путь означает использование дефолтных ключей
-			UseSSHKey:   true, // Использовать SSH ключ
-			HasPassword: false,
-			CreatedAt:   time.Now().Add(-30 * 24 * time.Hour),
-			UpdatedAt:   time.Now().Add(-7 * 24 * time.Hour),
-		},
 		{
 			ID:          "2",
 			Name:        "Development Server",
@@ -321,4 +413,18 @@ func (cs *ConnectionService) getSampleConnections() []models.Connection {
 // generateID генерирует простой ID (в реальном приложении используйте uuid)
 func generateID() string {
 	return time.Now().Format("20060102150405")
+}
+
+// isBase64Like проверяет, похож ли пароль на base64 (зашифрованный)
+func isBase64Like(password string) bool {
+	// Проверяем, что строка содержит только base64 символы и знаки равенства
+	for _, char := range password {
+		if !((char >= 'A' && char <= 'Z') ||
+			(char >= 'a' && char <= 'z') ||
+			(char >= '0' && char <= '9') ||
+			char == '+' || char == '/' || char == '=') {
+			return false
+		}
+	}
+	return true
 }

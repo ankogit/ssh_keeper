@@ -1,6 +1,7 @@
 package screens
 
 import (
+	"ssh-keeper/internal/services"
 	"ssh-keeper/internal/ui"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,19 +18,52 @@ func NewApp() *App {
 	manager := ui.NewScreenManager()
 
 	// Создаем экраны
+	welcome := NewWelcomeScreen()
 	mainMenu := CreateMenuWithActions() // Используем меню с действиями
 	connections := NewConnectionsScreen()
 	addConnection := NewAddConnectionScreen()
 	settings := NewSettingsScreen()
+	exportScreen := NewExportScreen()
+	importScreen := NewImportScreen()
 
 	// Регистрируем экраны
+	manager.RegisterScreen("welcome", welcome)
 	manager.RegisterScreen("main_menu", mainMenu)
 	manager.RegisterScreen("connections", connections)
 	manager.RegisterScreen("add_connection", addConnection)
 	manager.RegisterScreen("settings", settings)
+	manager.RegisterScreen("export", exportScreen)
+	manager.RegisterScreen("import", importScreen)
 
-	// Устанавливаем главное меню как текущий экран
-	manager.SetCurrentScreen("main_menu")
+	// Регистрируем фабрики экранов (для динамического создания)
+	manager.RegisterScreenFactory("edit_connection", func() ui.Screen {
+		return NewEditConnectionScreenEmpty()
+	})
+
+	// Определяем начальный экран на основе состояния мастер-пароля и настроек
+	var initialScreen string
+	if services.IsMasterPasswordInitializedWithSignature() {
+		// Мастер-пароль установлен - проверяем настройку запроса пароля при запуске
+		requirePassword, err := services.GetRequirePasswordOnStartupWithSignature()
+		if err != nil {
+			// Если ошибка получения настройки, используем значение по умолчанию (true)
+			requirePassword = true
+		}
+
+		if requirePassword {
+			// Пользователь хочет вводить пароль при каждом запуске
+			initialScreen = "welcome"
+		} else {
+			// Пользователь не хочет вводить пароль - переходим к главному меню
+			initialScreen = "main_menu"
+		}
+	} else {
+		// Мастер-пароль не установлен - показываем экран приветствия
+		initialScreen = "welcome"
+	}
+
+	// Устанавливаем начальный экран
+	manager.SetCurrentScreen(initialScreen)
 
 	return &App{
 		ScreenManager: manager,

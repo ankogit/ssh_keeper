@@ -118,6 +118,23 @@ func NewAddConnectionScreen() *AddConnectionScreen {
 		FieldType:   components.FieldTypeText,
 	})
 
+	// Добавляем кнопки
+	formManager.AddField(components.FieldConfig{
+		Name:      "save",
+		Label:     "Сохранить",
+		FieldType: components.FieldTypeButton,
+		Required:  false,
+		Width:     20,
+	})
+
+	formManager.AddField(components.FieldConfig{
+		Name:      "test",
+		Label:     "Тестировать подключение",
+		FieldType: components.FieldTypeButton,
+		Required:  false,
+		Width:     30,
+	})
+
 	// Создаем viewport для прокрутки
 	vp := viewport.New(0, 0)
 
@@ -181,9 +198,23 @@ func (acs *AddConnectionScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Переходим к предыдущему полю
 			acs.formManager.PrevField()
 		case "enter":
-			if acs.formManager.IsLastField() {
-				// Последнее поле - сохраняем
-				return acs, acs.saveConnection()
+			// Проверяем, какая кнопка была нажата
+			currentFieldName := acs.formManager.GetCurrentField()
+			currentField := acs.formManager.GetField(currentFieldName)
+
+			if currentField != nil && currentField.IsButton() {
+				buttonName := currentField.GetName()
+				switch buttonName {
+				case "save":
+					// Сохраняем подключение
+					return acs, acs.saveConnection()
+				case "test":
+					// Тестируем подключение
+					return acs, acs.testConnection()
+				}
+			} else if acs.formManager.IsLastField() {
+				// Если это последнее поле (не кнопка), переходим к первой кнопке
+				acs.formManager.NextField()
 			} else {
 				// Переходим к следующему полю
 				acs.formManager.NextField()
@@ -345,6 +376,8 @@ func (acs *AddConnectionScreen) togglePasswordVisibility() {
 func (acs *AddConnectionScreen) saveConnection() tea.Cmd {
 	// Валидируем все поля
 	if !acs.formManager.ValidateAll() {
+		// Показываем сообщение об ошибке валидации
+		acs.messageManager.AddError("❌ Пожалуйста, заполните все обязательные поля")
 		return nil
 	}
 
@@ -367,7 +400,7 @@ func (acs *AddConnectionScreen) saveConnection() tea.Cmd {
 		User:        values[components.FieldNameUser],
 		KeyPath:     values[components.FieldNameKey],
 		UseSSHKey:   !(values[components.FieldNameAuth] == "true"), // Если не пароль, то SSH ключ
-		HasPassword: values[components.FieldNameAuth] == "true",
+		HasPassword: values[components.FieldNameAuth] == "true" && values[components.FieldNamePassword] != "",
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -402,6 +435,8 @@ func (acs *AddConnectionScreen) saveConnection() tea.Cmd {
 func (acs *AddConnectionScreen) testConnection() tea.Cmd {
 	// Валидируем все поля
 	if !acs.formManager.ValidateAll() {
+		// Показываем сообщение об ошибке валидации
+		acs.messageManager.AddError("❌ Пожалуйста, заполните все обязательные поля для тестирования")
 		return nil
 	}
 
@@ -423,7 +458,7 @@ func (acs *AddConnectionScreen) testConnection() tea.Cmd {
 		User:        values[components.FieldNameUser],
 		KeyPath:     values[components.FieldNameKey],
 		UseSSHKey:   !(values[components.FieldNameAuth] == "true"), // Если не пароль, то SSH ключ
-		HasPassword: values[components.FieldNameAuth] == "true",
+		HasPassword: values[components.FieldNameAuth] == "true" && values[components.FieldNamePassword] != "",
 	}
 
 	// Добавляем пароль если используется

@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -103,8 +104,11 @@ func (sc *SSHConfig) RemoveHost(id string) bool {
 
 // ConvertToConnection converts SSHConfigHost to Connection model
 func (sh *SSHConfigHost) ConvertToConnection() *Connection {
+	// Генерируем уникальный ID на основе комбинации полей
+	id := sh.generateUniqueID()
+
 	conn := &Connection{
-		ID:          sh.ID,
+		ID:          id,
 		Name:        sh.Name,
 		Host:        sh.HostName,
 		Port:        sh.Port,
@@ -112,7 +116,7 @@ func (sh *SSHConfigHost) ConvertToConnection() *Connection {
 		KeyPath:     sh.IdentityFile,
 		UseSSHKey:   sh.UseSSHKey,
 		Password:    sh.Password,
-		HasPassword: sh.Password != "",
+		HasPassword: !sh.UseSSHKey && sh.Password != "",
 		CreatedAt:   sh.CreatedAt,
 		UpdatedAt:   sh.UpdatedAt,
 	}
@@ -128,6 +132,22 @@ func (sh *SSHConfigHost) ConvertToConnection() *Connection {
 	}
 
 	return conn
+}
+
+// generateUniqueID генерирует уникальный ID на основе комбинации полей
+func (sh *SSHConfigHost) generateUniqueID() string {
+	// Если ID уже есть и не пустой, используем его
+	if sh.ID != "" {
+		return sh.ID
+	}
+
+	// Генерируем уникальный ID на основе комбинации полей
+	// Используем Name + Host + User + Port для уникальности
+	return fmt.Sprintf("%s_%s_%s_%d",
+		strings.ReplaceAll(sh.Name, " ", "_"),
+		sh.HostName,
+		sh.User,
+		sh.Port)
 }
 
 // ConvertFromConnection converts Connection to SSHConfigHost

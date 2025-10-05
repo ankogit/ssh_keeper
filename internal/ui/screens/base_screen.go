@@ -30,6 +30,11 @@ func (bs *BaseScreen) SetContent(content string) {
 	bs.content = content
 }
 
+// SetTitle устанавливает заголовок экрана
+func (bs *BaseScreen) SetTitle(title string) {
+	bs.title = title
+}
+
 // SetSize устанавливает размеры экрана
 func (bs *BaseScreen) SetSize(width, height int) {
 	bs.width = width

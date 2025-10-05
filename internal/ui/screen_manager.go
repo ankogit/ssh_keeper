@@ -10,28 +10,44 @@ type Screen interface {
 	GetName() string
 }
 
+// ScreenWithData представляет интерфейс для экранов, которые могут принимать данные
+type ScreenWithData interface {
+	Screen
+	SetData(data interface{})
+}
+
+// ScreenFactory функция для создания экранов
+type ScreenFactory func() Screen
+
 // ScreenManager управляет переходами между экранами
 type ScreenManager struct {
-	screens  map[string]Screen
-	current  string
-	history  []string
-	mainMenu string
-	width    int
-	height   int
+	screens   map[string]Screen
+	factories map[string]ScreenFactory
+	current   string
+	history   []string
+	mainMenu  string
+	width     int
+	height    int
 }
 
 // NewScreenManager создает новый менеджер экранов
 func NewScreenManager() *ScreenManager {
 	return &ScreenManager{
-		screens:  make(map[string]Screen),
-		history:  make([]string, 0),
-		mainMenu: "main_menu",
+		screens:   make(map[string]Screen),
+		factories: make(map[string]ScreenFactory),
+		history:   make([]string, 0),
+		mainMenu:  "main_menu",
 	}
 }
 
 // RegisterScreen регистрирует экран в менеджере
 func (sm *ScreenManager) RegisterScreen(name string, screen Screen) {
 	sm.screens[name] = screen
+}
+
+// RegisterScreenFactory регистрирует фабрику экрана в менеджере
+func (sm *ScreenManager) RegisterScreenFactory(name string, factory ScreenFactory) {
+	sm.factories[name] = factory
 }
 
 // SetMainMenu устанавливает главное меню
@@ -41,7 +57,52 @@ func (sm *ScreenManager) SetMainMenu(name string) {
 
 // NavigateTo переходит к указанному экрану
 func (sm *ScreenManager) NavigateTo(screenName string) {
+	// Проверяем, есть ли уже экран
 	if _, exists := sm.screens[screenName]; exists {
+		// Добавляем текущий экран в историю, если он не пустой
+		if sm.current != "" {
+			sm.history = append(sm.history, sm.current)
+		}
+		sm.current = screenName
+		return
+	}
+
+	// Если экрана нет, но есть фабрика, создаем экран
+	if factory, exists := sm.factories[screenName]; exists {
+		screen := factory()
+		sm.screens[screenName] = screen
+		// Добавляем текущий экран в историю, если он не пустой
+		if sm.current != "" {
+			sm.history = append(sm.history, sm.current)
+		}
+		sm.current = screenName
+	}
+}
+
+// NavigateToWithData переходит к указанному экрану с данными
+func (sm *ScreenManager) NavigateToWithData(screenName string, data interface{}) {
+	// Для экранов с данными всегда создаем новый экран
+	if factory, exists := sm.factories[screenName]; exists {
+		screen := factory()
+		// Передаем данные сразу после создания
+		if screenWithData, ok := screen.(ScreenWithData); ok && data != nil {
+			screenWithData.SetData(data)
+		}
+		sm.screens[screenName] = screen
+		// Добавляем текущий экран в историю, если он не пустой
+		if sm.current != "" {
+			sm.history = append(sm.history, sm.current)
+		}
+		sm.current = screenName
+		return
+	}
+
+	// Если фабрики нет, проверяем существующий экран
+	if existingScreen, exists := sm.screens[screenName]; exists {
+		// Если экран уже существует, передаем ему данные
+		if screenWithData, ok := existingScreen.(ScreenWithData); ok && data != nil {
+			screenWithData.SetData(data)
+		}
 		// Добавляем текущий экран в историю, если он не пустой
 		if sm.current != "" {
 			sm.history = append(sm.history, sm.current)
@@ -104,7 +165,11 @@ func (sm *ScreenManager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		sm.screens[sm.current] = updatedScreen.(Screen)
 		return sm, cmd
 	case NavigateToMsg:
-		sm.NavigateTo(msg.ScreenName)
+		if msg.Data != nil {
+			sm.NavigateToWithData(msg.ScreenName, msg.Data)
+		} else {
+			sm.NavigateTo(msg.ScreenName)
+		}
 		// Передаем размеры экрана новому экрану, если они есть
 		if sm.width > 0 && sm.height > 0 {
 			if newScreen := sm.GetCurrentScreen(); newScreen != nil {
@@ -161,6 +226,7 @@ func (sm *ScreenManager) Init() tea.Cmd {
 // NavigateToMsg сообщение для навигации к экрану
 type NavigateToMsg struct {
 	ScreenName string
+	Data       interface{} // Данные для передачи в экран
 }
 
 // GoBackMsg сообщение для возврата к предыдущему экрану
@@ -170,6 +236,13 @@ type GoBackMsg struct{}
 func NavigateToCmd(screenName string) tea.Cmd {
 	return func() tea.Msg {
 		return NavigateToMsg{ScreenName: screenName}
+	}
+}
+
+// NavigateToWithDataCmd создает команду для навигации к экрану с данными
+func NavigateToWithDataCmd(screenName string, data interface{}) tea.Cmd {
+	return func() tea.Msg {
+		return NavigateToMsg{ScreenName: screenName, Data: data}
 	}
 }
 

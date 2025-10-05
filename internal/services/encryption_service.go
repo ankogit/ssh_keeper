@@ -4,7 +4,6 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -12,16 +11,23 @@ import (
 
 // EncryptionService handles encryption/decryption of sensitive data
 type EncryptionService struct {
-	masterKey []byte
+	masterPasswordService *MasterPasswordService
+	derivedKey            []byte
 }
 
 // NewEncryptionService creates a new encryption service
-func NewEncryptionService(masterKey string) *EncryptionService {
-	// Derive key from master key using SHA-256
-	hash := sha256.Sum256([]byte(masterKey))
-	return &EncryptionService{
-		masterKey: hash[:],
+func NewEncryptionService(masterPasswordService *MasterPasswordService) *EncryptionService {
+	es := &EncryptionService{
+		masterPasswordService: masterPasswordService,
+		derivedKey:            nil,
 	}
+
+	// Инициализируем ключ если мастер-пароль уже установлен
+	if masterPasswordService.IsInitialized() {
+		es.refreshKey()
+	}
+
+	return es
 }
 
 // Encrypt encrypts a plaintext string
@@ -30,8 +36,13 @@ func (es *EncryptionService) Encrypt(plaintext string) (string, error) {
 		return "", nil
 	}
 
+	// Проверяем, что ключ инициализирован
+	if es.derivedKey == nil {
+		return "", fmt.Errorf("ключ шифрования не инициализирован")
+	}
+
 	// Create AES cipher
-	block, err := aes.NewCipher(es.masterKey)
+	block, err := aes.NewCipher(es.derivedKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to create cipher: %w", err)
 	}
@@ -61,6 +72,11 @@ func (es *EncryptionService) Decrypt(ciphertext string) (string, error) {
 		return "", nil
 	}
 
+	// Проверяем, что ключ инициализирован
+	if es.derivedKey == nil {
+		return "", fmt.Errorf("ключ шифрования не инициализирован")
+	}
+
 	// Decode from base64
 	data, err := base64.StdEncoding.DecodeString(ciphertext)
 	if err != nil {
@@ -68,7 +84,7 @@ func (es *EncryptionService) Decrypt(ciphertext string) (string, error) {
 	}
 
 	// Create AES cipher
-	block, err := aes.NewCipher(es.masterKey)
+	block, err := aes.NewCipher(es.derivedKey)
 	if err != nil {
 		return "", fmt.Errorf("failed to create cipher: %w", err)
 	}
@@ -104,4 +120,25 @@ func (es *EncryptionService) EncryptPassword(password string) (string, error) {
 // DecryptPassword decrypts a password from storage
 func (es *EncryptionService) DecryptPassword(encryptedPassword string) (string, error) {
 	return es.Decrypt(encryptedPassword)
+}
+
+// RefreshKey обновляет ключ шифрования из мастер-пароля
+func (es *EncryptionService) RefreshKey() error {
+	return es.refreshKey()
+}
+
+// refreshKey внутренний метод для обновления ключа
+func (es *EncryptionService) refreshKey() error {
+	masterPassword, err := es.masterPasswordService.GetMasterPassword()
+	if err != nil {
+		return fmt.Errorf("не удалось получить мастер-пароль: %w", err)
+	}
+
+	es.derivedKey = es.masterPasswordService.DeriveKey(masterPassword)
+	return nil
+}
+
+// IsInitialized проверяет, инициализирован ли сервис шифрования
+func (es *EncryptionService) IsInitialized() bool {
+	return es.derivedKey != nil && es.masterPasswordService.IsInitialized()
 }
