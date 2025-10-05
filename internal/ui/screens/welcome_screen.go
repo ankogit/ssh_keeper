@@ -9,7 +9,9 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
+	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // WelcomeScreen представляет экран приветствия и ввода мастер-пароля
@@ -21,6 +23,10 @@ type WelcomeScreen struct {
 	// Менеджеры
 	formManager    *components.FormManager
 	messageManager *components.MessageManager
+
+	// Прокрутка
+	viewport viewport.Model
+	ready    bool
 
 	// Состояние
 	isFirstTime bool
@@ -39,6 +45,9 @@ func NewWelcomeScreen() *WelcomeScreen {
 	formManager := components.NewFormManager()
 	messageManager := components.NewMessageManager()
 
+	// Создаем viewport для прокрутки
+	vp := viewport.New(0, 0)
+
 	// Определяем, первый ли это запуск - используем глобальную функцию с проверкой подписи
 	isFirstTime := !services.IsMasterPasswordInitializedWithSignature()
 
@@ -48,6 +57,8 @@ func NewWelcomeScreen() *WelcomeScreen {
 		encryptionService:     encryptionService,
 		formManager:           formManager,
 		messageManager:        messageManager,
+		viewport:              vp,
+		ready:                 false,
 		currentStep:           0,
 		isFirstTime:           isFirstTime,
 	}
@@ -60,6 +71,7 @@ func NewWelcomeScreen() *WelcomeScreen {
 	}
 
 	// Устанавливаем фокус на первое поле
+	screen.formManager.SetCurrentField("password")
 	screen.formManager.UpdateFocus()
 
 	return screen
@@ -121,36 +133,47 @@ func (ws *WelcomeScreen) setupExistingForm() {
 
 // Init инициализирует экран
 func (ws *WelcomeScreen) Init() tea.Cmd {
-	return nil
+	// Устанавливаем фокус на первое поле через FormManager
+	ws.formManager.SetCurrentField("password")
+	ws.formManager.UpdateFocus()
+	return textinput.Blink
 }
 
 // Update обновляет состояние экрана
 func (ws *WelcomeScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
+	var cmd tea.Cmd
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		// Устанавливаем размеры экрана в базовый экран
-		ws.BaseScreen.SetSize(msg.Width, msg.Height)
+		ws.SetSize(msg.Width, msg.Height)
+		if !ws.ready {
+			// Инициализируем viewport при первом изменении размера
+			// Учитываем все служебные элементы: заголовки, рамки, отступы
+			ws.viewport = viewport.New(msg.Width-4, msg.Height-12)
+			ws.ready = true
+			ws.updateViewportContent()
+		} else {
+			// Используем одинаковый размер для консистентности
+			ws.viewport.Width = msg.Width - 4
+			ws.viewport.Height = msg.Height - 12
+		}
 		return ws, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c", "esc":
+		case "ctrl+c":
+			return ws, tea.Quit
+		case "esc":
 			return ws, tea.Quit
 		case "ctrl+p":
 			// Переключаем видимость пароля
 			ws.togglePasswordVisibility()
-			return ws, nil
 		case "tab":
 			// Переходим к следующему полю
 			ws.formManager.NextField()
-			ws.formManager.UpdateFocus()
-			return ws, nil
 		case "shift+tab":
 			// Переходим к предыдущему полю
 			ws.formManager.PrevField()
-			ws.formManager.UpdateFocus()
-			return ws, nil
 		case "enter":
 			// Проверяем, является ли текущее поле кнопкой
 			if currentField := ws.formManager.GetCurrentFieldModel(); currentField != nil && currentField.IsButton() {
@@ -158,58 +181,94 @@ func (ws *WelcomeScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else {
 				// Если это не кнопка, переходим к следующему полю
 				ws.formManager.NextField()
-				ws.formManager.UpdateFocus()
-				return ws, nil
+			}
+		case "up":
+			// Прокрутка вверх
+			ws.viewport.ScrollUp(1)
+		case "down":
+			// Прокрутка вниз
+			ws.viewport.ScrollDown(1)
+		case "pageup":
+			// Прокрутка на страницу вверх
+			ws.viewport.PageUp()
+		case "pagedown":
+			// Прокрутка на страницу вниз
+			ws.viewport.PageDown()
+		}
+	}
+
+	// Обновляем все поля через менеджер формы
+	for _, fieldName := range ws.formManager.GetFieldOrder() {
+		field := ws.formManager.GetField(fieldName)
+		_, fieldCmd := field.Update(msg)
+		if fieldCmd != nil {
+			if teaCmd, ok := fieldCmd.(tea.Cmd); ok {
+				cmd = teaCmd
 			}
 		}
 	}
 
-	// Обновляем текущее поле формы только для необработанных сообщений
-	if currentField := ws.formManager.GetCurrentFieldModel(); currentField != nil {
-		// Проверяем, что это не специальная клавиша
-		if keyMsg, ok := msg.(tea.KeyMsg); ok {
-			switch keyMsg.String() {
-			case "ctrl+c", "esc", "ctrl+p", "tab", "shift+tab", "enter":
-				// Эти клавиши уже обработаны выше, не передаем их в поле
-				return ws, tea.Batch(cmds...)
-			}
-		}
-
-		// Обновляем только текущее поле, не дублируем вызов
-		_, cmd := currentField.Update(msg)
-		if cmd != nil {
-			if teaCmd, ok := cmd.(tea.Cmd); ok {
-				cmds = append(cmds, teaCmd)
-			}
-		}
-	}
-
-	// Обновляем фокус формы после обработки сообщений
+	// Обновляем фокус через менеджер формы
 	ws.formManager.UpdateFocus()
 
-	return ws, tea.Batch(cmds...)
+	// Обновляем содержимое viewport
+	ws.updateViewportContent()
+
+	// Обновляем базовый экран
+	baseScreen, baseCmd := ws.BaseScreen.Update(msg)
+	ws.BaseScreen = baseScreen.(*BaseScreen)
+	if baseCmd != nil {
+		cmd = baseCmd
+	}
+
+	return ws, cmd
 }
 
 // View отображает экран
 func (ws *WelcomeScreen) View() string {
-	var content string
-
-	if ws.isFirstTime {
-		content = ws.renderFirstTimeView()
-	} else {
-		content = ws.renderExistingView()
+	if !ws.ready {
+		return "Инициализация..."
 	}
 
-	// Добавляем сообщения
-	messages := ws.messageManager.RenderMessages(80)
+	// Подготавливаем содержимое viewport
+	viewportContent := ws.viewport.View()
+
+	// Добавляем индикатор прокрутки под viewport если не дошли до конца
+	if !ws.viewport.AtBottom() {
+		// Создаем более информативный индикатор прокрутки
+		scrollIndicator := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(styles.ColorMuted)).
+			Align(lipgloss.Center).
+			Render("↓ Прокрутите вниз для просмотра всех полей ↓")
+
+		// Добавляем индикатор под содержимое viewport
+		viewportContent += "\n" + scrollIndicator
+	}
+
+	// Добавляем сообщения в конец
+	messages := ws.messageManager.RenderMessages(80) // Используем фиксированную ширину
 	if messages != "" {
-		content += "\n\n" + messages
+		viewportContent += "\n" + messages
 	}
 
-	// Устанавливаем контент в базовый экран
-	ws.BaseScreen.SetContent(content)
+	// Устанавливаем содержимое с индикатором
+	ws.SetContent(viewportContent)
+	return ws.BaseScreen.View()
+}
 
-	return ws.BaseScreen.Render()
+// updateViewportContent обновляет содержимое viewport
+func (ws *WelcomeScreen) updateViewportContent() {
+	content := ws.renderForm()
+	ws.viewport.SetContent(content)
+}
+
+// renderForm рендерит форму в виде вертикального списка
+func (ws *WelcomeScreen) renderForm() string {
+	if ws.isFirstTime {
+		return ws.renderFirstTimeView()
+	} else {
+		return ws.renderExistingView()
+	}
 }
 
 // renderFirstTimeView отображает форму для первого запуска
