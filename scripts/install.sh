@@ -2,6 +2,7 @@
 
 # SSH Keeper - One-line installer
 # Usage: curl -fsSL https://raw.githubusercontent.com/ankogit/ssh_keeper/main/scripts/install.sh | bash
+# Fixed version format issue - URLs now correct
 
 set -e
 
