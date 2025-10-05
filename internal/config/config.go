@@ -78,11 +78,6 @@ func Init() (*Config, error) {
 
 // Validate проверяет корректность конфигурации
 func (c *Config) Validate() error {
-	// Проверяем обязательные поля
-	if c.Security.AppSignature == "" {
-		return fmt.Errorf("APP_SIGNATURE is required")
-	}
-
 	// Проверяем допустимые значения
 	if c.Env != DevEnv && c.Env != ProdEnv {
 		return fmt.Errorf("invalid ENV value: %s, must be %s or %s", c.Env, DevEnv, ProdEnv)
