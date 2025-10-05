@@ -134,19 +134,25 @@ main() {
     echo -e "${BLUE}"
     echo "  ╔══════════════════════════════════════════════════════════════╗"
     echo "  ║                                                              ║"
-    echo "  ║                    🗑️  SSH KEEPER 🗑️                       ║"
+    echo "  ║                    🗑️  SSH KEEPER 🗑️                         ║"
     echo "  ║                                                              ║"
-    echo "  ║                    Uninstaller                              ║"
+    echo "  ║                    Uninstaller                               ║"
     echo "  ║                                                              ║"
     echo "  ╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
     
-    # Confirm uninstallation
-    read -p "Are you sure you want to uninstall SSH Keeper? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        echo -e "${BLUE}Uninstallation cancelled.${NC}"
-        exit 0
+    # Check if running in non-interactive mode (curl | bash)
+    if [[ ! -t 0 ]]; then
+        echo -e "${YELLOW}⚠️  Running in non-interactive mode. Proceeding with uninstallation...${NC}"
+        echo ""
+    else
+        # Confirm uninstallation only in interactive mode
+        read -p "Are you sure you want to uninstall SSH Keeper? (y/N): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}Uninstallation cancelled.${NC}"
+            exit 0
+        fi
     fi
     
     # Uninstall
