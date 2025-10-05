@@ -11,6 +11,7 @@ var (
 	globalMasterPasswordService *MasterPasswordService
 	globalEncryptionService     *EncryptionService
 	globalSecurityConfigService *SecurityConfigService
+	globalAutoUpdateService     *AutoUpdateService
 )
 
 // SetGlobalConnectionService sets the global connection service
@@ -171,4 +172,14 @@ func SetGlobalSecurityConfigService(service *SecurityConfigService) {
 // GetGlobalSecurityConfigService returns the global security config service
 func GetGlobalSecurityConfigService() *SecurityConfigService {
 	return globalSecurityConfigService
+}
+
+// SetGlobalAutoUpdateService sets the global auto update service
+func SetGlobalAutoUpdateService(service *AutoUpdateService) {
+	globalAutoUpdateService = service
+}
+
+// GetGlobalAutoUpdateService returns the global auto update service
+func GetGlobalAutoUpdateService() *AutoUpdateService {
+	return globalAutoUpdateService
 }

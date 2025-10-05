@@ -112,22 +112,16 @@ func main() {
 
 // initializeServices initializes all application services
 func initializeServices() error {
+	// Устанавливаем встроенную подпись если она есть (из CI build)
+	// Это нужно сделать ДО загрузки конфигурации
+	if appSignature != "" {
+		os.Setenv("SECURITY_APP_SIGNATURE", appSignature)
+	}
+
 	// Инициализируем конфигурацию (это загрузит .env файл если он есть)
 	cfg, err := config.Init()
 	if err != nil {
 		return fmt.Errorf("failed to initialize config: %w", err)
-	}
-
-	// Проверяем, есть ли APP_SIGNATURE в переменных окружения (из .env файла или CI)
-	if os.Getenv("APP_SIGNATURE") == "" {
-		// Если нет, используем встроенную переменную (из CI build)
-		if appSignature != "" {
-			os.Setenv("APP_SIGNATURE", appSignature)
-		} else {
-			fmt.Printf("ERROR: APP_SIGNATURE not found in environment or embedded in binary!\n")
-			fmt.Printf("For local development, create a .env file with APP_SIGNATURE=ssh-keeper-sig-dev\n")
-			return fmt.Errorf("APP_SIGNATURE not found")
-		}
 	}
 
 	// Получаем путь к конфигурации из настроек
@@ -173,6 +167,23 @@ func initializeServices() error {
 
 	// Set global service
 	services.SetGlobalConnectionService(connectionService)
+
+	// // Инициализируем сервис автоматических обновлений
+	// autoUpdateService := services.NewAutoUpdateService(cfg)
+	// services.SetGlobalAutoUpdateService(autoUpdateService)
+
+	// // Выполняем автоматическую проверку обновлений если нужно
+	// if autoUpdateService.CheckIfUpdateNeeded() {
+	// 	go func() {
+	// 		updateInfo, err := autoUpdateService.PerformAutoCheck()
+	// 		if err != nil {
+	// 			fmt.Printf("Auto-update check failed: %v\n", err)
+	// 		} else if updateInfo != nil && updateInfo.IsAvailable {
+	// 			// Уведомление об обновлениях временно отключено
+	// 			// fmt.Printf("🔄 New version %s is available! Check Settings > Updates to install.\n", updateInfo.Version)
+	// 		}
+	// 	}()
+	// }
 
 	return nil
 }

@@ -42,6 +42,13 @@ type Config struct {
 		Level  string `envconfig:"LOG_LEVEL" default:"info"`
 		Format string `envconfig:"LOG_FORMAT" default:"text"`
 	} `envconfig:"LOGGING"`
+
+	// Настройки обновлений
+	Updates struct {
+		AutoCheck     bool   `envconfig:"AUTO_CHECK_UPDATES" default:"true"`
+		CheckInterval int    `envconfig:"UPDATE_CHECK_INTERVAL" default:"24"` // часы
+		LastCheck     string `envconfig:"LAST_UPDATE_CHECK" default:""`
+	} `envconfig:"UPDATES"`
 }
 
 // Init инициализирует конфигурацию из переменных окружения и файлов
@@ -115,13 +122,33 @@ func (c *Config) ValidateAppSignature() error {
 		return fmt.Errorf("подпись приложения не загружена")
 	}
 
-	// В режиме разработки принимаем подпись ssh-keeper-sig-dev
-	if c.IsDevelopment() && c.Security.AppSignature == "ssh-keeper-sig-dev" {
-		return nil
-	}
-
-	// В продакшене здесь будет более строгая проверка
+	// Простая проверка - любая непустая подпись принимается
+	// В будущем здесь будет более строгая проверка
 	// Например, проверка хеша приложения, цифровой подписи и т.д.
 
 	return nil
+}
+
+// GetUpdatesConfig возвращает настройки обновлений
+func (c *Config) GetUpdatesConfig() *struct {
+	AutoCheck     bool   `envconfig:"AUTO_CHECK_UPDATES" default:"true"`
+	CheckInterval int    `envconfig:"UPDATE_CHECK_INTERVAL" default:"24"` // часы
+	LastCheck     string `envconfig:"LAST_UPDATE_CHECK" default:""`
+} {
+	return &c.Updates
+}
+
+// IsAutoUpdateEnabled проверяет, включена ли автоматическая проверка обновлений
+func (c *Config) IsAutoUpdateEnabled() bool {
+	return c.Updates.AutoCheck
+}
+
+// GetUpdateCheckInterval возвращает интервал проверки обновлений в часах
+func (c *Config) GetUpdateCheckInterval() int {
+	return c.Updates.CheckInterval
+}
+
+// GetLastUpdateCheck возвращает время последней проверки обновлений
+func (c *Config) GetLastUpdateCheck() string {
+	return c.Updates.LastCheck
 }

@@ -23,6 +23,7 @@ func NewApp() *App {
 	connections := NewConnectionsScreen()
 	addConnection := NewAddConnectionScreen()
 	settings := NewSettingsScreen()
+	updatesScreen := NewUpdatesScreen()
 	exportScreen := NewExportScreen()
 	importScreen := NewImportScreen()
 
@@ -32,6 +33,7 @@ func NewApp() *App {
 	manager.RegisterScreen("connections", connections)
 	manager.RegisterScreen("add_connection", addConnection)
 	manager.RegisterScreen("settings", settings)
+	manager.RegisterScreen("updates", updatesScreen)
 	manager.RegisterScreen("export", exportScreen)
 	manager.RegisterScreen("import", importScreen)
 

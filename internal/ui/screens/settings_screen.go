@@ -138,6 +138,14 @@ func NewSettingsScreen() *SettingsScreen {
 				},
 			},
 			{
+				Title:       "Обновления",
+				Description: "Проверить и установить обновления",
+				Shortcut:    "5",
+				Action: func() tea.Cmd {
+					return ui.NavigateToCmd("updates")
+				},
+			},
+			{
 				Title:       "Назад",
 				Description: "Вернуться к главному меню",
 				Shortcut:    "esc",
