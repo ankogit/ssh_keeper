@@ -8,7 +8,7 @@
 [![Go Version](https://img.shields.io/badge/Go-1.24+-blue.svg)](https://golang.org/)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey.svg)](https://github.com/ankogit/ssh_keeper/releases)
 
-*Built with ❤️ using [Bubble Tea](https://github.com/charmbracelet/bubbletea) and Go*
+_Built with ❤️ using [Bubble Tea](https://github.com/charmbracelet/bubbletea) and Go_
 
 </div>
 
@@ -32,9 +32,10 @@
 
 Download the latest release for your platform:
 
-- **macOS**: [ssh-keeper-0.1.0-darwin-amd64.tar.gz](https://github.com/ankogit/ssh_keeper/releases/download/v0.1.0/ssh-keeper-0.1.0-darwin-amd64.tar.gz) | [ssh-keeper-0.1.0-darwin-arm64.tar.gz](https://github.com/ankogit/ssh_keeper/releases/download/v0.1.0/ssh-keeper-0.1.0-darwin-arm64.tar.gz)
-- **Linux**: [ssh-keeper-0.1.0-linux-amd64.tar.gz](https://github.com/ankogit/ssh_keeper/releases/download/v0.1.0/ssh-keeper-0.1.0-linux-amd64.tar.gz)
-- **Windows**: [ssh-keeper-0.1.0-windows-amd64.zip](https://github.com/ankogit/ssh_keeper/releases/download/v0.1.0/ssh-keeper-0.1.0-windows-amd64.zip)
+- **macOS Intel**: [ssh-keeper-0.1.0-darwin-amd64.tar.gz](https://github.com/ankogit/ssh_keeper/releases/download/v0.1.0/ssh-keeper-0.1.0-darwin-amd64.tar.gz) (3.08 MiB)
+- **macOS Apple Silicon**: [ssh-keeper-0.1.0-darwin-arm64.tar.gz](https://github.com/ankogit/ssh_keeper/releases/download/v0.1.0/ssh-keeper-0.1.0-darwin-arm64.tar.gz) (2.94 MiB)
+- **Linux**: [ssh-keeper-0.1.0-linux-amd64.tar.gz](https://github.com/ankogit/ssh_keeper/releases/download/v0.1.0/ssh-keeper-0.1.0-linux-amd64.tar.gz) (3.84 MiB)
+- **Windows**: [ssh-keeper-0.1.0-windows-amd64.zip](https://github.com/ankogit/ssh_keeper/releases/download/v0.1.0/ssh-keeper-0.1.0-windows-amd64.zip) (3.33 MiB)
 
 ### Extract and Run
 
@@ -55,20 +56,24 @@ chmod +x ssh-keeper*
 > **Note**: Screenshots will be added here once the application is running
 
 ### Main Menu
+
 ![Main Menu](docs/screenshots/main-menu.png)
-*Beautiful main menu with intuitive navigation*
+_Beautiful main menu with intuitive navigation_
 
 ### Connection List
+
 ![Connection List](docs/screenshots/connections.png)
-*View and manage your SSH connections*
+_View and manage your SSH connections_
 
 ### Add Connection
+
 ![Add Connection](docs/screenshots/add-connection.png)
-*Easy connection setup with form validation*
+_Easy connection setup with form validation_
 
 ### Settings
+
 ![Settings](docs/screenshots/settings.png)
-*Configure your SSH Keeper preferences*
+_Configure your SSH Keeper preferences_
 
 ## 🛠️ Installation
 
@@ -130,13 +135,13 @@ The application provides an intuitive main menu with the following options:
 
 ### Keyboard Shortcuts
 
-| Key | Action |
-|-----|--------|
-| `↑/↓` | Navigate menu items |
-| `Enter` | Select item |
-| `Ctrl+S` | Search connections |
-| `Esc` | Go back |
-| `Q` | Quit application |
+| Key      | Action              |
+| -------- | ------------------- |
+| `↑/↓`    | Navigate menu items |
+| `Enter`  | Select item         |
+| `Ctrl+S` | Search connections  |
+| `Esc`    | Go back             |
+| `Q`      | Quit application    |
 
 ### Adding Connections
 
@@ -152,11 +157,13 @@ The application provides an intuitive main menu with the following options:
 ### Authentication Methods
 
 #### Password Authentication
+
 - Enter your password when adding the connection
 - Password is encrypted and stored securely
 - No need to enter password each time you connect
 
 #### SSH Key Authentication
+
 - Specify the path to your SSH private key
 - Supports standard SSH key formats
 - Works with existing SSH key infrastructure
@@ -177,13 +184,13 @@ Create a `.env` file for development:
 cp env.example .env
 ```
 
-| Variable | Description | Default | Required |
-|----------|-------------|---------|----------|
-| `DEBUG` | Enable debug mode | `false` | No |
-| `ENV` | Environment (development/production) | `development` | No |
-| `CONFIG_PATH` | Path to application config file | `~/.ssh-keeper/config` | No |
-| `APP_SIGNATURE` | Application signature for security | - | Yes |
-| `SSH_CONFIG_PATH` | Path to SSH config file | `~/.ssh/config` | No |
+| Variable          | Description                          | Default                | Required |
+| ----------------- | ------------------------------------ | ---------------------- | -------- |
+| `DEBUG`           | Enable debug mode                    | `false`                | No       |
+| `ENV`             | Environment (development/production) | `development`          | No       |
+| `CONFIG_PATH`     | Path to application config file      | `~/.ssh-keeper/config` | No       |
+| `APP_SIGNATURE`   | Application signature for security   | -                      | Yes      |
+| `SSH_CONFIG_PATH` | Path to SSH config file              | `~/.ssh/config`        | No       |
 
 ## 🔒 Security
 
