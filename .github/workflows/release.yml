@@ -22,6 +22,7 @@ jobs:
   build:
     name: Build for ${{ matrix.os }}-${{ matrix.arch }}
     runs-on: ${{ matrix.os }}
+    environment: Production
     strategy:
       matrix:
         include:
@@ -70,20 +71,20 @@ jobs:
           fi
           echo "version_clean=$(echo ${GITHUB_REF#refs/tags/} | sed 's/^v//')" >> $GITHUB_OUTPUT
 
-      # - name: Create production .env
-      #   run: |
-      #     cat > .env << EOF
-      #     DEBUG=false
-      #     ENV=production
-      #     CONFIG_PATH=~/.ssh-keeper/config
-      #     APP_SIGNATURE=ssh-keeper-sig-prod-${{ steps.version.outputs.version_clean }}
-      #     SSH_CONFIG_PATH=~/.ssh/config
-      #     APP_NAME=ssh-keeper
-      #     APP_VERSION=${{ steps.version.outputs.version_clean }}
-      #     APP_DESCRIPTION=SSH Connection Manager
-      #     LOG_LEVEL=info
-      #     LOG_FORMAT=text
-      #     EOF
+      - name: Create production .env
+        run: |
+          cat > .env << EOF
+          DEBUG=false
+          ENV=production
+          CONFIG_PATH=~/.ssh-keeper/config
+          APP_SIGNATURE=${{ env.APP_SIGNATURE }}
+          SSH_CONFIG_PATH=~/.ssh/config
+          APP_NAME=ssh-keeper
+          APP_VERSION=${{ steps.version.outputs.version_clean }}
+          APP_DESCRIPTION=SSH Connection Manager
+          LOG_LEVEL=info
+          LOG_FORMAT=text
+          EOF
 
       - name: Download dependencies
         run: go mod download
@@ -120,6 +121,7 @@ jobs:
   release:
     name: Create Release
     runs-on: ubuntu-latest
+    environment: Production
     needs: build
     if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
 
