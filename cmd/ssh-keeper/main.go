@@ -23,6 +23,12 @@ var (
 	connectionService *services.ConnectionService
 )
 
+// Build-time variables
+var (
+	version      string
+	appSignature string
+)
+
 // restoreTerminal восстанавливает терминал после SSH сессий
 func restoreTerminal() {
 	cmd := exec.Command("reset")
@@ -89,6 +95,11 @@ func main() {
 
 // initializeServices initializes all application services
 func initializeServices() error {
+	// Устанавливаем APP_SIGNATURE из встроенной переменной, если она есть
+	if appSignature != "" {
+		os.Setenv("APP_SIGNATURE", appSignature)
+	}
+
 	// Инициализируем конфигурацию
 	cfg, err := config.Init()
 	if err != nil {

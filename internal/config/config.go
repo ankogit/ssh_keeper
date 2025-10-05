@@ -125,3 +125,4 @@ func (c *Config) ValidateAppSignature() error {
 
 	return nil
 }
+

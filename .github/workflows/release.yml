@@ -100,7 +100,7 @@ jobs:
         shell: bash
         run: |
           GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
-            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }}" \
+            -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ env.APP_SIGNATURE }}" \
             -o ${{ env.BINARY_NAME }}-${{ matrix.artifact_name }} \
             ./cmd/ssh-keeper
 
