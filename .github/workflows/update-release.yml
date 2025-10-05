@@ -43,6 +43,15 @@ jobs:
           LOG_FORMAT=text
           EOF
 
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Update vendor directory
+        run: go mod vendor
+
       - name: Build all platforms
         run: |
           # Linux

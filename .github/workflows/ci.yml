@@ -47,6 +47,9 @@ jobs:
       - name: Verify dependencies
         run: go mod verify
 
+      - name: Update vendor directory
+        run: go mod vendor
+
       - name: Run tests
         run: go test -v ./...
 
