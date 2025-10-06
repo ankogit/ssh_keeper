@@ -1,3 +1,12 @@
+ssh-keeper (0.1.1-1) unstable; urgency=medium
+
+  * Fixed Ctrl+C behavior in SSH sessions
+  * Improved terminal signal handling
+  * Better PTY management for interactive SSH connections
+  * Enhanced terminal restoration after SSH disconnection
+
+ -- Your Name <your.email@example.com>  Mon, 01 Jan 2024 12:00:00 +0000
+
 ssh-keeper (0.1.0-1) unstable; urgency=medium
 
   * Initial release
@@ -6,6 +15,7 @@ ssh-keeper (0.1.0-1) unstable; urgency=medium
   * OpenSSH config compatibility
 
  -- Your Name <your.email@example.com>  Mon, 01 Jan 2024 12:00:00 +0000
+
 
 
 

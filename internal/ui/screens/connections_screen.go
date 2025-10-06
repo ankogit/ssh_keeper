@@ -289,7 +289,7 @@ func (cs *ConnectionsScreen) connectToSelected() {
 // launchSSHSession запускает SSH сессию
 func (cs *ConnectionsScreen) launchSSHSession(conn *models.Connection) {
 	// Восстанавливаем терминал перед запуском SSH
-	cs.restoreTerminal()
+	cs.restoreTerminal(false)
 
 	// Создаем соответствующий SSH клиент на основе типа аутентификации
 	factory := ssh.NewClientFactory()
@@ -317,12 +317,12 @@ func (cs *ConnectionsScreen) launchSSHSession(conn *models.Connection) {
 
 	// Если SSH завершился успешно, восстанавливаем терминал и закрываем приложение
 	fmt.Println("SSH сессия завершена. Приложение закрывается...")
-	cs.restoreTerminal()
+	cs.restoreTerminal(true)
 	os.Exit(0)
 }
 
 // restoreTerminal восстанавливает терминал
-func (cs *ConnectionsScreen) restoreTerminal() {
+func (cs *ConnectionsScreen) restoreTerminal(withReset bool) {
 	// Радикальное восстановление терминалае
 	fmt.Print("\033[?1049l") // Выход из альтернативного буфера
 	fmt.Print("\033[?25h")   // Показать курсор
@@ -346,14 +346,16 @@ func (cs *ConnectionsScreen) restoreTerminal() {
 	fmt.Print("\033[0m")     // Сбрасываем все атрибуты
 
 	// Радикальная защита через reset и stty
-	cmd := exec.Command("reset")
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Run()
+	if withReset {
+		cmd := exec.Command("reset")
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		cmd.Run()
+		exec.Command("stty", "sane").Run()
+		exec.Command("tput", "reset").Run()
+	}
 
-	exec.Command("stty", "sane").Run()
-	exec.Command("tput", "reset").Run()
 }
 
 // restoreTUI восстанавливает TUI
