@@ -38,11 +38,11 @@ func (ci ConnectionItem) Description() string {
 	// Тип аутентификации (только иконка)
 	var authIcon string
 	if ci.Connection.UseSSHKey {
-		authIcon = "🔑" // SSH ключ (конкретный или дефолтный)
+		authIcon = "[K]" // SSH ключ (конкретный или дефолтный)
 	} else if ci.Connection.HasPassword {
-		authIcon = "🔒" // Только пароль
+		authIcon = "[P]" // Только пароль
 	} else {
-		authIcon = "❓" // Неизвестно
+		authIcon = "[?]" // Неизвестно
 	}
 
 	return fmt.Sprintf("%s | %s | %s", hostInfo, userInfo, authIcon)
@@ -88,11 +88,11 @@ func (ci ConnectionItem) RenderCustomItem() string {
 
 	var auth string
 	if ci.Connection.KeyPath != "" {
-		auth = authStyle.Render("🔑 ключ")
+		auth = authStyle.Render("[K] ключ")
 	} else if ci.Connection.HasPassword {
-		auth = authStyle.Render("🔒 пароль")
+		auth = authStyle.Render("[P] пароль")
 	} else {
-		auth = authStyle.Render("❓ неизвестно")
+		auth = authStyle.Render("[?] неизвестно")
 	}
 
 	return fmt.Sprintf("%s %s | %s | %s", name, host, user, auth)

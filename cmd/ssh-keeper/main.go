@@ -25,7 +25,8 @@ var (
 
 // Build-time variables
 var (
-	version      string
+	version      string = "dev" // Default version for development
+	buildTime    string = "dev" // Default build time for development
 	appSignature string
 )
 

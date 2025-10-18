@@ -26,6 +26,7 @@ func NewApp() *App {
 	updatesScreen := NewUpdatesScreen()
 	exportScreen := NewExportScreen()
 	importScreen := NewImportScreen()
+	appInfoScreen := NewAppInfoScreen()
 
 	// Регистрируем экраны
 	manager.RegisterScreen("welcome", welcome)
@@ -36,6 +37,7 @@ func NewApp() *App {
 	manager.RegisterScreen("updates", updatesScreen)
 	manager.RegisterScreen("export", exportScreen)
 	manager.RegisterScreen("import", importScreen)
+	manager.RegisterScreen("app_info", appInfoScreen)
 
 	// Регистрируем фабрики экранов (для динамического создания)
 	manager.RegisterScreenFactory("edit_connection", func() ui.Screen {

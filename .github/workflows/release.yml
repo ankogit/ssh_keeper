@@ -87,6 +87,9 @@ jobs:
           APP_DESCRIPTION=SSH Connection Manager
           LOG_LEVEL=info
           LOG_FORMAT=text
+          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          AUTO_CHECK_UPDATES=false
+          UPDATE_CHECK_INTERVAL=24
           EOF
           echo "DEBUG: Created .env file:"
           cat .env
@@ -103,14 +106,15 @@ jobs:
       - name: Build binary
         shell: bash
         run: |
+          BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           if [ "${{ matrix.goos }}" = "windows" ]; then
             GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
-              -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
+              -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.buildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
               -o ${{ env.BINARY_NAME }}-${{ matrix.artifact_name }}.exe \
               ./cmd/ssh-keeper
           else
             GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
-              -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
+              -ldflags "-X main.version=${{ steps.version.outputs.version_clean }} -X main.buildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
               -o ${{ env.BINARY_NAME }}-${{ matrix.artifact_name }} \
               ./cmd/ssh-keeper
           fi

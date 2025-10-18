@@ -64,7 +64,7 @@ func NewUpdatesScreen() *UpdatesScreen {
 		Items: []ui.MenuItemConfig{
 			{
 				Title:       "Проверить обновления",
-				Description: "Проверить наличие новых версий",
+				Description: "Проверить наличие новых версий на GitHub",
 				Shortcut:    "1",
 				Action: func() tea.Cmd {
 					return func() tea.Msg {
@@ -82,15 +82,15 @@ func NewUpdatesScreen() *UpdatesScreen {
 					return nil
 				},
 			},
-			{
-				Title:       "Настройки обновлений",
-				Description: "Настроить автоматическую проверку обновлений",
-				Shortcut:    "3",
-				Action: func() tea.Cmd {
-					// TODO: Реализовать экран настроек обновлений
-					return components.AddMessageCmd(components.NewMessage(components.MessageTypeInfo, "Настройки обновлений будут добавлены в следующей версии"))
-				},
-			},
+			// {
+			// 	Title:       "Настройки обновлений",
+			// 	Description: "Настроить автоматическую проверку обновлений",
+			// 	Shortcut:    "3",
+			// 	Action: func() tea.Cmd {
+			// 		// TODO: Реализовать экран настроек обновлений
+			// 		return components.AddMessageCmd(components.NewMessage(components.MessageTypeInfo, "Настройки обновлений будут добавлены в следующей версии"))
+			// 	},
+			// },
 			{
 				Title:       "Назад",
 				Description: "Вернуться к настройкам",
@@ -288,6 +288,12 @@ func (us *UpdatesScreen) updateContent() {
 		Bold(true).
 		Margin(0, 0, 1, 0)
 
+	// Получаем текущую версию
+	currentVersion := os.Getenv("APP_VERSION")
+	if currentVersion == "" {
+		currentVersion = "dev"
+	}
+
 	// Создаем заголовок
 	header := headerStyle.Render("Выберите действие:")
 
@@ -298,12 +304,17 @@ func (us *UpdatesScreen) updateContent() {
 			Foreground(lipgloss.Color(styles.ColorSuccess)).
 			Bold(true).
 			Margin(0, 0, 1, 0).
-			Render(fmt.Sprintf("🔄 Доступно обновление до версии %s", us.updateInfo.Version))
+			Render(fmt.Sprintf("[!] Доступно обновление до версии %s", us.updateInfo.Version))
 	} else if us.updateInfo != nil && !us.updateInfo.IsAvailable {
 		updateInfo = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(styles.ColorSuccess)).
 			Margin(0, 0, 1, 0).
-			Render("✅ У вас установлена последняя версия")
+			Render("[OK] У вас установлена последняя версия")
+	} else {
+		updateInfo = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(styles.ColorMuted)).
+			Margin(0, 0, 1, 0).
+			Render(fmt.Sprintf("[i] Текущая версия: %s", currentVersion))
 	}
 
 	// Рендерим сообщения

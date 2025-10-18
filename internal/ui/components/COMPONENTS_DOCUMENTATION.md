@@ -208,14 +208,14 @@ type ConnectionItem struct {
 **Отображение:**
 
 ```
-Production Server (prod.example.com:22) | пользователь: admin | 🔑
+Production Server (prod.example.com:22) | пользователь: admin | [K]
 ```
 
 **Иконки аутентификации:**
 
-- 🔑 - SSH ключ
-- 🔒 - Пароль
-- ❓ - Неизвестно
+- [K] - SSH ключ
+- [P] - Пароль
+- [?] - Неизвестно
 
 ## Константы
 

@@ -63,7 +63,7 @@ type ConnectionItem struct {
 
 ```
 Production Server
-prod.example.com:22 | пользователь: admin | 🔑 ключ
+prod.example.com:22 | пользователь: admin | [K] ключ
 ```
 
 ## Архитектура

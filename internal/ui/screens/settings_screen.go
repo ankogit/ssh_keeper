@@ -116,7 +116,7 @@ func NewSettingsScreen() *SettingsScreen {
 					return func() tea.Msg {
 						return addMessageMsg{
 							messageType: "success",
-							text:        "✅ Мастер-пароль сброшен. Приложение будет закрыто.",
+							text:        "[OK] Мастер-пароль сброшен. Приложение будет закрыто.",
 						}
 					}
 				},
@@ -143,6 +143,14 @@ func NewSettingsScreen() *SettingsScreen {
 				Shortcut:    "5",
 				Action: func() tea.Cmd {
 					return ui.NavigateToCmd("updates")
+				},
+			},
+			{
+				Title:       "О приложении",
+				Description: "Информация о версии и создателе",
+				Shortcut:    "6",
+				Action: func() tea.Cmd {
+					return ui.NavigateToCmd("app_info")
 				},
 			},
 			{

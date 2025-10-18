@@ -51,7 +51,7 @@ type GitHubRelease struct {
 func NewUpdateService(currentVersion string) *UpdateService {
 	return &UpdateService{
 		currentVersion: currentVersion,
-		githubOwner:    "ankogit",
+		githubOwner:    "ankogit", // Замените на ваш GitHub username
 		githubRepo:     "ssh_keeper",
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
