@@ -229,10 +229,7 @@ func (cs *ConnectionsScreen) updateContent() {
 
 	// Объединяем все
 	var contentParts []string
-	if messages != "" {
-		contentParts = append(contentParts, messages)
-	}
-	contentParts = append(contentParts, searchView, "", listContent, "", instructions)
+	contentParts = append(contentParts, searchView, "", listContent, instructions, messages)
 
 	content := lipgloss.JoinVertical(lipgloss.Left, contentParts...)
 
