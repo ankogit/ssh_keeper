@@ -100,22 +100,20 @@ func (us *UpdateService) DownloadAndInstallUpdate(updateInfo *UpdateInfo) error 
 		return fmt.Errorf("failed to get current executable path: %w", err)
 	}
 
+	// Проверяем права на запись в директорию исполняемого файла
+	execDir := filepath.Dir(currentExecutable)
+	if !us.canWriteToDirectory(execDir) {
+		return fmt.Errorf("insufficient permissions to update application in %s. Please run with sudo or install to a user-writable directory", execDir)
+	}
+
 	// Извлекаем новый исполняемый файл
 	newExecutable, err := us.extractExecutable(data, updateInfo.DownloadURL)
 	if err != nil {
 		return fmt.Errorf("failed to extract executable: %w", err)
 	}
 
-	// Создаем резервную копию текущего файла
-	backupPath := currentExecutable + ".backup"
-	if err := us.copyFile(currentExecutable, backupPath); err != nil {
-		return fmt.Errorf("failed to create backup: %w", err)
-	}
-
 	// Заменяем текущий файл новым
 	if err := us.copyFile(newExecutable, currentExecutable); err != nil {
-		// Восстанавливаем из резервной копии при ошибке
-		us.copyFile(backupPath, currentExecutable)
 		return fmt.Errorf("failed to install update: %w", err)
 	}
 
@@ -124,9 +122,8 @@ func (us *UpdateService) DownloadAndInstallUpdate(updateInfo *UpdateInfo) error 
 		return fmt.Errorf("failed to set executable permissions: %w", err)
 	}
 
-	// Удаляем временные файлы
+	// Удаляем временный файл
 	os.Remove(newExecutable)
-	os.Remove(backupPath)
 
 	return nil
 }
@@ -292,6 +289,19 @@ func (us *UpdateService) isExecutableFile(filename string) bool {
 	// Для Unix-систем файл должен быть исполняемым
 	// Здесь мы просто проверяем, что это не директория и не скрытый файл
 	return !strings.Contains(filename, "/") && !strings.HasPrefix(filepath.Base(filename), ".")
+}
+
+// canWriteToDirectory проверяет, можно ли записывать в директорию
+func (us *UpdateService) canWriteToDirectory(dir string) bool {
+	// Пробуем создать временный файл в директории
+	tempFile := filepath.Join(dir, ".ssh-keeper-test-write")
+	file, err := os.Create(tempFile)
+	if err != nil {
+		return false
+	}
+	file.Close()
+	os.Remove(tempFile)
+	return true
 }
 
 // copyFile копирует файл
