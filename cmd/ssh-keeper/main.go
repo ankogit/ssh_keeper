@@ -12,6 +12,7 @@ import (
 	"ssh-keeper/internal/config"
 	"ssh-keeper/internal/services"
 	"ssh-keeper/internal/ui/screens"
+	"ssh-keeper/internal/version"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -25,8 +26,8 @@ var (
 
 // Build-time variables
 var (
-	version      string = "dev" // Default version for development
-	buildTime    string = "dev" // Default build time for development
+	appVersion   string = "dev" // Default version for development
+	appBuildTime string = "dev" // Default build time for development
 	appSignature string
 )
 
@@ -72,11 +73,11 @@ func main() {
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "--version", "-v":
-			fmt.Printf("SSH Keeper version %s\n", version)
+			fmt.Printf("SSH Keeper version %s\n", version.GetVersion())
 			return
 		case "--help", "-h":
 			fmt.Printf("SSH Keeper - Secure SSH Connection Manager\n")
-			fmt.Printf("Version: %s\n", version)
+			fmt.Printf("Version: %s\n", version.GetVersion())
 			fmt.Printf("\nUsage: ssh-keeper [options]\n")
 			fmt.Printf("\nOptions:\n")
 			fmt.Printf("  --version, -v    Show version information\n")
@@ -206,7 +207,7 @@ func initializeServices() error {
 	return nil
 }
 
-// GetConnectionService returns the global connection service
-func GetConnectionService() *services.ConnectionService {
-	return connectionService
+// GetVersion возвращает версию приложения
+func GetVersion() string {
+	return version.GetVersion()
 }

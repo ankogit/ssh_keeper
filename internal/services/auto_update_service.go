@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"ssh-keeper/internal/config"
+	"ssh-keeper/internal/version"
 )
 
 // AutoUpdateService управляет автоматическими проверками обновлений
@@ -17,14 +18,12 @@ type AutoUpdateService struct {
 
 // NewAutoUpdateService создает новый сервис автоматических обновлений
 func NewAutoUpdateService(cfg *config.Config) *AutoUpdateService {
-	version := os.Getenv("APP_VERSION")
-	if version == "" {
-		version = "0.1.0"
-	}
+	// Получаем версию через пакет version
+	currentVersion := version.GetVersion()
 
 	return &AutoUpdateService{
 		config:        cfg,
-		updateService: NewUpdateService(version),
+		updateService: NewUpdateService(currentVersion),
 	}
 }
 

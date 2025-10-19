@@ -2,11 +2,11 @@ package screens
 
 import (
 	"fmt"
-	"os"
 	"runtime"
 
 	"ssh-keeper/internal/ui"
 	"ssh-keeper/internal/ui/styles"
+	"ssh-keeper/internal/version"
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -104,22 +104,16 @@ func (ais *AppInfoScreen) View() string {
 
 // updateViewportContent обновляет содержимое viewport
 func (ais *AppInfoScreen) updateViewportContent() {
-	// Получаем версию приложения
-	appVersion := os.Getenv("APP_VERSION")
-	if appVersion == "" {
-		appVersion = "dev"
-	}
+	// Получаем версию приложения через пакет version
+	appVersion := version.GetVersion()
 
 	// Получаем информацию о системе
 	goVersion := runtime.Version()
 	goOS := runtime.GOOS
 	goArch := runtime.GOARCH
 
-	// Получаем время сборки (если доступно)
-	buildTime := os.Getenv("BUILD_TIME")
-	if buildTime == "" {
-		buildTime = "dev"
-	}
+	// Получаем время сборки через пакет version
+	buildTime := version.GetBuildTime()
 
 	// Создаем стили
 	titleStyle := lipgloss.NewStyle().

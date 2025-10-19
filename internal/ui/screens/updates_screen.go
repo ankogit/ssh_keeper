@@ -9,6 +9,7 @@ import (
 	"ssh-keeper/internal/ui"
 	"ssh-keeper/internal/ui/components"
 	"ssh-keeper/internal/ui/styles"
+	"ssh-keeper/internal/version"
 
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
@@ -288,11 +289,8 @@ func (us *UpdatesScreen) updateContent() {
 		Bold(true).
 		Margin(0, 0, 1, 0)
 
-	// Получаем текущую версию
-	currentVersion := os.Getenv("APP_VERSION")
-	if currentVersion == "" {
-		currentVersion = "dev"
-	}
+	// Получаем текущую версию через пакет version
+	currentVersion := version.GetVersion()
 
 	// Создаем заголовок
 	header := headerStyle.Render("Выберите действие:")
