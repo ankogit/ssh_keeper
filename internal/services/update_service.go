@@ -102,7 +102,7 @@ func (us *UpdateService) DownloadAndInstallUpdate(updateInfo *UpdateInfo) error 
 
 	// Пробуем разные методы установки по порядку
 	execDir := filepath.Dir(currentExecutable)
-	
+
 	// Метод 1: Прямая установка (если есть права)
 	if us.canWriteToDirectory(execDir) {
 		return us.installDirectly(data, updateInfo.DownloadURL, currentExecutable)
@@ -141,9 +141,14 @@ func (us *UpdateService) getLatestRelease() (*GitHubRelease, error) {
 
 // isUpdateAvailable проверяет, доступно ли обновление
 func (us *UpdateService) isUpdateAvailable(latestVersion string) bool {
-	// Убираем префикс 'v' если есть
+	// Убираем префикс 'v' если есть (костыль для правильного сравнения)
 	current := strings.TrimPrefix(us.currentVersion, "v")
 	latest := strings.TrimPrefix(latestVersion, "v")
+
+	// Дополнительная проверка: если версии одинаковые, обновление не нужно
+	if current == latest {
+		return false
+	}
 
 	// Простое сравнение версий (можно улучшить для семантического версионирования)
 	return current != latest
@@ -311,31 +316,31 @@ func (us *UpdateService) installToUserDirectory(data []byte, downloadURL, curren
 	if err != nil {
 		return fmt.Errorf("failed to get home directory: %w", err)
 	}
-	
+
 	// Создаем директорию ~/bin
 	userBin := filepath.Join(homeDir, "bin")
 	if err := os.MkdirAll(userBin, 0755); err != nil {
 		return fmt.Errorf("failed to create user bin directory: %w", err)
 	}
-	
+
 	// Извлекаем новый исполняемый файл
 	newExecutable, err := us.extractExecutable(data, downloadURL)
 	if err != nil {
 		return fmt.Errorf("failed to extract executable: %w", err)
 	}
 	defer os.Remove(newExecutable)
-	
+
 	// Устанавливаем в ~/bin/ssh-keeper
 	userExecutable := filepath.Join(userBin, "ssh-keeper")
 	if err := us.copyFile(newExecutable, userExecutable); err != nil {
 		return fmt.Errorf("failed to install to user directory: %w", err)
 	}
-	
+
 	// Устанавливаем права на выполнение
 	if err := os.Chmod(userExecutable, 0755); err != nil {
 		return fmt.Errorf("failed to set executable permissions: %w", err)
 	}
-	
+
 	return fmt.Errorf("installed to %s. Please add ~/bin to your PATH and restart the application", userExecutable)
 }
 

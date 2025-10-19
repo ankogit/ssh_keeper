@@ -64,22 +64,22 @@ jobs:
           BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           # Linux
           GOOS=linux GOARCH=amd64 go build \
-            -ldflags "-X ssh-keeper/internal/version.Version=v${{ steps.version.outputs.version_clean }} -X ssh-keeper/internal/version.BuildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
+            -ldflags "-X ssh-keeper/internal/version.Version=${{ steps.version.outputs.version_clean }} -X ssh-keeper/internal/version.BuildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
             -o ssh-keeper-linux-amd64 ./cmd/ssh-keeper
 
           # macOS Intel
           GOOS=darwin GOARCH=amd64 go build \
-            -ldflags "-X ssh-keeper/internal/version.Version=v${{ steps.version.outputs.version_clean }} -X ssh-keeper/internal/version.BuildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
+            -ldflags "-X ssh-keeper/internal/version.Version=${{ steps.version.outputs.version_clean }} -X ssh-keeper/internal/version.BuildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
             -o ssh-keeper-darwin-amd64 ./cmd/ssh-keeper
 
           # macOS Apple Silicon
           GOOS=darwin GOARCH=arm64 go build \
-            -ldflags "-X ssh-keeper/internal/version.Version=v${{ steps.version.outputs.version_clean }} -X ssh-keeper/internal/version.BuildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
+            -ldflags "-X ssh-keeper/internal/version.Version=${{ steps.version.outputs.version_clean }} -X ssh-keeper/internal/version.BuildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
             -o ssh-keeper-darwin-arm64 ./cmd/ssh-keeper
 
           # Windows
           GOOS=windows GOARCH=amd64 go build \
-            -ldflags "-X ssh-keeper/internal/version.Version=v${{ steps.version.outputs.version_clean }} -X ssh-keeper/internal/version.BuildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
+            -ldflags "-X ssh-keeper/internal/version.Version=${{ steps.version.outputs.version_clean }} -X ssh-keeper/internal/version.BuildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
             -o ssh-keeper-windows-amd64.exe ./cmd/ssh-keeper
 
       - name: Create archives
