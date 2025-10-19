@@ -108,13 +108,13 @@ jobs:
         run: |
           BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           if [ "${{ matrix.goos }}" = "windows" ]; then
-            GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} APP_VERSION=${{ steps.version.outputs.version_clean }} go build \
-              -ldflags "-X ssh-keeper/internal/version.Version=${{ steps.version.outputs.version_clean }} -X ssh-keeper/internal/version.BuildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
+            GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
+              -ldflags "-X ssh-keeper/internal/version.Version=v${{ steps.version.outputs.version_clean }} -X ssh-keeper/internal/version.BuildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
               -o ${{ env.BINARY_NAME }}-${{ matrix.artifact_name }}.exe \
               ./cmd/ssh-keeper
           else
-            GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} APP_VERSION=${{ steps.version.outputs.version_clean }} go build \
-              -ldflags "-X ssh-keeper/internal/version.Version=${{ steps.version.outputs.version_clean }} -X ssh-keeper/internal/version.BuildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
+            GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build \
+              -ldflags "-X ssh-keeper/internal/version.Version=v${{ steps.version.outputs.version_clean }} -X ssh-keeper/internal/version.BuildTime=$BUILD_TIME -X main.appSignature=${{ secrets.APP_SIGNATURE }}" \
               -o ${{ env.BINARY_NAME }}-${{ matrix.artifact_name }} \
               ./cmd/ssh-keeper
           fi

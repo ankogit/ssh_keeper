@@ -22,7 +22,7 @@ all: clean build
 build:
 	@echo "$(BLUE)Building $(BINARY_NAME)...$(NC)"
 	@mkdir -p $(BUILD_DIR)
-	@go build -ldflags "-X ssh-keeper/internal/version.Version=$(VERSION) -X ssh-keeper/internal/version.BuildTime=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/ssh-keeper
+	@go build -ldflags "-X ssh-keeper/internal/version.Version=v$(VERSION) -X ssh-keeper/internal/version.BuildTime=$(shell date -u +%Y-%m-%dT%H:%M:%SZ)" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/ssh-keeper
 	@echo "$(GREEN)Build completed!$(NC)"
 
 # Build for multiple platforms

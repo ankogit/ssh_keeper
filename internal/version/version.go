@@ -10,15 +10,11 @@ var (
 
 // GetVersion возвращает версию приложения
 func GetVersion() string {
-	// Сначала пробуем получить из переменной окружения (для CI)
-	if envVersion := os.Getenv("APP_VERSION"); envVersion != "" {
-		return envVersion
-	}
-	// Затем используем переменную из ldflags
+	// Используем переменную из ldflags (установлена во время сборки)
 	if Version != "" && Version != "dev" {
 		return Version
 	}
-	// Fallback
+	// Fallback для разработки
 	return "dev"
 }
 

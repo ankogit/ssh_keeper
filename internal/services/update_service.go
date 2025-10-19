@@ -100,32 +100,21 @@ func (us *UpdateService) DownloadAndInstallUpdate(updateInfo *UpdateInfo) error 
 		return fmt.Errorf("failed to get current executable path: %w", err)
 	}
 
-	// Проверяем права на запись в директорию исполняемого файла
+	// Пробуем разные методы установки по порядку
 	execDir := filepath.Dir(currentExecutable)
-	if !us.canWriteToDirectory(execDir) {
-		return fmt.Errorf("insufficient permissions to update application in %s. Please run with sudo or install to a user-writable directory", execDir)
+	
+	// Метод 1: Прямая установка (если есть права)
+	if us.canWriteToDirectory(execDir) {
+		return us.installDirectly(data, updateInfo.DownloadURL, currentExecutable)
 	}
 
-	// Извлекаем новый исполняемый файл
-	newExecutable, err := us.extractExecutable(data, updateInfo.DownloadURL)
-	if err != nil {
-		return fmt.Errorf("failed to extract executable: %w", err)
+	// Метод 2: Установка в пользовательскую директорию
+	if err := us.installToUserDirectory(data, updateInfo.DownloadURL, currentExecutable); err == nil {
+		return nil
 	}
 
-	// Заменяем текущий файл новым
-	if err := us.copyFile(newExecutable, currentExecutable); err != nil {
-		return fmt.Errorf("failed to install update: %w", err)
-	}
-
-	// Устанавливаем права на выполнение
-	if err := os.Chmod(currentExecutable, 0755); err != nil {
-		return fmt.Errorf("failed to set executable permissions: %w", err)
-	}
-
-	// Удаляем временный файл
-	os.Remove(newExecutable)
-
-	return nil
+	// Метод 3: Через sudo (последний вариант)
+	return us.installUpdateWithSudo(data, updateInfo.DownloadURL, currentExecutable)
 }
 
 // getLatestRelease получает информацию о последнем релизе с GitHub
@@ -289,6 +278,111 @@ func (us *UpdateService) isExecutableFile(filename string) bool {
 	// Для Unix-систем файл должен быть исполняемым
 	// Здесь мы просто проверяем, что это не директория и не скрытый файл
 	return !strings.Contains(filename, "/") && !strings.HasPrefix(filepath.Base(filename), ".")
+}
+
+// installDirectly устанавливает обновление напрямую
+func (us *UpdateService) installDirectly(data []byte, downloadURL, currentExecutable string) error {
+	// Извлекаем новый исполняемый файл
+	newExecutable, err := us.extractExecutable(data, downloadURL)
+	if err != nil {
+		return fmt.Errorf("failed to extract executable: %w", err)
+	}
+
+	// Заменяем текущий файл новым
+	if err := us.copyFile(newExecutable, currentExecutable); err != nil {
+		return fmt.Errorf("failed to install update: %w", err)
+	}
+
+	// Устанавливаем права на выполнение
+	if err := os.Chmod(currentExecutable, 0755); err != nil {
+		return fmt.Errorf("failed to set executable permissions: %w", err)
+	}
+
+	// Удаляем временный файл
+	os.Remove(newExecutable)
+
+	return nil
+}
+
+// installToUserDirectory устанавливает в пользовательскую директорию
+func (us *UpdateService) installToUserDirectory(data []byte, downloadURL, currentExecutable string) error {
+	// Получаем домашнюю директорию
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return fmt.Errorf("failed to get home directory: %w", err)
+	}
+	
+	// Создаем директорию ~/bin
+	userBin := filepath.Join(homeDir, "bin")
+	if err := os.MkdirAll(userBin, 0755); err != nil {
+		return fmt.Errorf("failed to create user bin directory: %w", err)
+	}
+	
+	// Извлекаем новый исполняемый файл
+	newExecutable, err := us.extractExecutable(data, downloadURL)
+	if err != nil {
+		return fmt.Errorf("failed to extract executable: %w", err)
+	}
+	defer os.Remove(newExecutable)
+	
+	// Устанавливаем в ~/bin/ssh-keeper
+	userExecutable := filepath.Join(userBin, "ssh-keeper")
+	if err := us.copyFile(newExecutable, userExecutable); err != nil {
+		return fmt.Errorf("failed to install to user directory: %w", err)
+	}
+	
+	// Устанавливаем права на выполнение
+	if err := os.Chmod(userExecutable, 0755); err != nil {
+		return fmt.Errorf("failed to set executable permissions: %w", err)
+	}
+	
+	return fmt.Errorf("installed to %s. Please add ~/bin to your PATH and restart the application", userExecutable)
+}
+
+// installUpdateWithSudo устанавливает обновление через sudo
+func (us *UpdateService) installUpdateWithSudo(data []byte, downloadURL, currentExecutable string) error {
+	// Извлекаем новый исполняемый файл
+	newExecutable, err := us.extractExecutable(data, downloadURL)
+	if err != nil {
+		return fmt.Errorf("failed to extract executable: %w", err)
+	}
+	defer os.Remove(newExecutable)
+
+	// Создаем временный скрипт для обновления
+	scriptContent := fmt.Sprintf(`#!/bin/bash
+# Обновление SSH Keeper
+echo "Installing SSH Keeper update..."
+cp "%s" "%s"
+chmod 755 "%s"
+echo "Update completed successfully!"
+`, newExecutable, currentExecutable, currentExecutable)
+
+	// Создаем временный скрипт
+	scriptFile, err := os.CreateTemp("", "ssh-keeper-update-*.sh")
+	if err != nil {
+		return fmt.Errorf("failed to create update script: %w", err)
+	}
+	defer os.Remove(scriptFile.Name())
+
+	// Записываем скрипт
+	if _, err := scriptFile.WriteString(scriptContent); err != nil {
+		return fmt.Errorf("failed to write update script: %w", err)
+	}
+	scriptFile.Close()
+
+	// Устанавливаем права на выполнение для скрипта
+	if err := os.Chmod(scriptFile.Name(), 0755); err != nil {
+		return fmt.Errorf("failed to set script permissions: %w", err)
+	}
+
+	// Запускаем скрипт через sudo
+	cmd := exec.Command("sudo", scriptFile.Name())
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to run update script with sudo: %w\nOutput: %s", err, string(output))
+	}
+
+	return nil
 }
 
 // canWriteToDirectory проверяет, можно ли записывать в директорию
