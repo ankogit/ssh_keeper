@@ -90,6 +90,11 @@ func (us *UpdateService) CheckForUpdates() (*UpdateInfo, error) {
 
 // DownloadAndInstallUpdate загружает и устанавливает обновление
 func (us *UpdateService) DownloadAndInstallUpdate(updateInfo *UpdateInfo) error {
+	// Проверяем, что приложение не запущено с sudo
+	if us.isRunningAsRoot() {
+		return fmt.Errorf("application is running with elevated privileges. Please run without sudo for safe updates")
+	}
+
 	// Загружаем файл
 	data, err := us.downloadFile(updateInfo.DownloadURL)
 	if err != nil {
@@ -110,14 +115,14 @@ func (us *UpdateService) DownloadAndInstallUpdate(updateInfo *UpdateInfo) error 
 	// Пробуем разные методы установки по порядку
 	execDir := filepath.Dir(currentExecutable)
 
-	// Метод 1: Прямая установка (если есть права)
-	if us.canWriteToDirectory(execDir) {
-		return us.installDirectly(data, updateInfo.DownloadURL, currentExecutable)
-	}
-
-	// Метод 2: Установка в пользовательскую директорию (предпочтительный)
+	// Метод 1: Установка в пользовательскую директорию (всегда предпочтительный)
 	if err := us.installToUserDirectory(data, updateInfo.DownloadURL, currentExecutable); err == nil {
 		return nil
+	}
+
+	// Метод 2: Прямая установка (только если есть права и это безопасно)
+	if us.canWriteToDirectory(execDir) {
+		return us.installDirectly(data, updateInfo.DownloadURL, currentExecutable)
 	}
 
 	// Метод 3: Предложить пользователю запустить с sudo
@@ -154,12 +159,6 @@ func (us *UpdateService) isUpdateAvailable(latestVersion string) bool {
 	// Убираем префикс 'v' если есть (костыль для правильного сравнения)
 	current := strings.TrimPrefix(currentVersion, "v")
 	latest := strings.TrimPrefix(latestVersion, "v")
-
-	// Отладочная информация
-	fmt.Printf("DEBUG: Current version: \"%s\" (clean: \"%s\")\n", currentVersion, current)
-	fmt.Printf("DEBUG: Latest version: \"%s\" (clean: \"%s\")\n", latestVersion, latest)
-	fmt.Printf("DEBUG: Are equal: %t\n", current == latest)
-	fmt.Printf("DEBUG: Update available: %t\n", current != latest)
 
 	// Дополнительная проверка: если версии одинаковые, обновление не нужно
 	if current == latest {
@@ -403,6 +402,24 @@ func (us *UpdateService) validateDownloadedFile(data []byte, downloadURL string)
 	// Если не распознали заголовок, но файл достаточно большой, считаем валидным
 	// (возможно, это архив tar.gz)
 	return nil
+}
+
+// isRunningAsRoot проверяет, запущено ли приложение с правами root
+func (us *UpdateService) isRunningAsRoot() bool {
+	// Проверяем переменные окружения sudo
+	if os.Getenv("SUDO_USER") != "" || os.Getenv("SUDO_UID") != "" {
+		return true
+	}
+
+	// Проверяем UID (Unix) или права администратора (Windows)
+	if runtime.GOOS == "windows" {
+		// На Windows проверяем, запущено ли с правами администратора
+		// Это упрощенная проверка - в реальности может быть сложнее
+		return false // Пока что считаем, что на Windows не запущено с правами администратора
+	}
+
+	// На Unix-системах проверяем UID
+	return os.Geteuid() == 0
 }
 
 // canWriteToDirectory проверяет, можно ли записывать в директорию
