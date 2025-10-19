@@ -15,6 +15,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"ssh-keeper/internal/version"
 )
 
 // UpdateInfo содержит информацию об обновлении
@@ -118,8 +120,8 @@ func (us *UpdateService) DownloadAndInstallUpdate(updateInfo *UpdateInfo) error 
 		return nil
 	}
 
-	// Метод 3: Установка через sudo
-	return us.installUpdateWithSudo(data, updateInfo.DownloadURL, currentExecutable)
+	// Метод 3: Предложить пользователю запустить с sudo
+	return fmt.Errorf("insufficient permissions to update application in %s. Please run the application with sudo to update: sudo ssh-keeper", execDir)
 }
 
 // getLatestRelease получает информацию о последнем релизе с GitHub
@@ -146,12 +148,15 @@ func (us *UpdateService) getLatestRelease() (*GitHubRelease, error) {
 
 // isUpdateAvailable проверяет, доступно ли обновление
 func (us *UpdateService) isUpdateAvailable(latestVersion string) bool {
+	// Получаем актуальную версию каждый раз
+	currentVersion := version.GetVersion()
+
 	// Убираем префикс 'v' если есть (костыль для правильного сравнения)
-	current := strings.TrimPrefix(us.currentVersion, "v")
+	current := strings.TrimPrefix(currentVersion, "v")
 	latest := strings.TrimPrefix(latestVersion, "v")
 
 	// Отладочная информация
-	fmt.Printf("DEBUG: Current version: \"%s\" (clean: \"%s\")\n", us.currentVersion, current)
+	fmt.Printf("DEBUG: Current version: \"%s\" (clean: \"%s\")\n", currentVersion, current)
 	fmt.Printf("DEBUG: Latest version: \"%s\" (clean: \"%s\")\n", latestVersion, latest)
 	fmt.Printf("DEBUG: Are equal: %t\n", current == latest)
 	fmt.Printf("DEBUG: Update available: %t\n", current != latest)
@@ -367,55 +372,6 @@ func (us *UpdateService) installToUserDirectory(data []byte, downloadURL, curren
 
 	// Возвращаем специальную ошибку с инструкциями
 	return fmt.Errorf("installed to %s. Please add ~/bin to your PATH and restart the application", userExecutable)
-}
-
-// installUpdateWithSudo устанавливает обновление через sudo
-func (us *UpdateService) installUpdateWithSudo(data []byte, downloadURL, currentExecutable string) error {
-	// Извлекаем новый исполняемый файл
-	newExecutable, err := us.extractExecutable(data, downloadURL)
-	if err != nil {
-		return fmt.Errorf("failed to extract executable: %w", err)
-	}
-	defer os.Remove(newExecutable)
-
-	// Создаем временный скрипт для обновления
-	scriptContent := fmt.Sprintf(`#!/bin/bash
-# Обновление SSH Keeper
-echo "Installing SSH Keeper update..."
-cp "%s" "%s"
-chmod 755 "%s"
-echo "Update completed successfully!"
-`, newExecutable, currentExecutable, currentExecutable)
-
-	// Создаем временный скрипт
-	scriptFile, err := os.CreateTemp("", "ssh-keeper-update-*.sh")
-	if err != nil {
-		return fmt.Errorf("failed to create update script: %w", err)
-	}
-	defer os.Remove(scriptFile.Name())
-
-	// Записываем скрипт
-	if _, err := scriptFile.WriteString(scriptContent); err != nil {
-		return fmt.Errorf("failed to write update script: %w", err)
-	}
-	scriptFile.Close()
-
-	// Устанавливаем права на выполнение для скрипта
-	if err := os.Chmod(scriptFile.Name(), 0755); err != nil {
-		return fmt.Errorf("failed to set script permissions: %w", err)
-	}
-
-	// Запускаем скрипт через sudo
-	cmd := exec.Command("sudo", scriptFile.Name())
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to run update script with sudo: %w", err)
-	}
-
-	return nil
 }
 
 // validateDownloadedFile проверяет загруженный файл
