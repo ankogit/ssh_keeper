@@ -150,6 +150,12 @@ func (us *UpdateService) isUpdateAvailable(latestVersion string) bool {
 	current := strings.TrimPrefix(us.currentVersion, "v")
 	latest := strings.TrimPrefix(latestVersion, "v")
 
+	// Отладочная информация
+	fmt.Printf("DEBUG: Current version: \"%s\" (clean: \"%s\")\n", us.currentVersion, current)
+	fmt.Printf("DEBUG: Latest version: \"%s\" (clean: \"%s\")\n", latestVersion, latest)
+	fmt.Printf("DEBUG: Are equal: %t\n", current == latest)
+	fmt.Printf("DEBUG: Update available: %t\n", current != latest)
+
 	// Дополнительная проверка: если версии одинаковые, обновление не нужно
 	if current == latest {
 		return false

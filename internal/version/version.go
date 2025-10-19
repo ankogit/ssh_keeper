@@ -1,6 +1,9 @@
 package version
 
-import "os"
+import (
+	"os"
+	"strings"
+)
 
 var (
 	// Version is set via ldflags during build
@@ -12,7 +15,8 @@ var (
 func GetVersion() string {
 	// Используем переменную из ldflags (установлена во время сборки)
 	if Version != "" && Version != "dev" {
-		return Version
+		// Убираем префикс 'v' если есть
+		return strings.TrimPrefix(Version, "v")
 	}
 	// Fallback для разработки
 	return "dev"
