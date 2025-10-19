@@ -3,6 +3,8 @@ package screens
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 	"time"
 
 	"ssh-keeper/internal/services"
@@ -164,18 +166,29 @@ func (us *UpdatesScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case updateDownloadMsg:
 		us.isDownloading = false
 		if msg.err != nil {
-			us.messageManager.AddError(fmt.Sprintf("Ошибка установки обновления: %v", msg.err))
+			// Проверяем, является ли это "успешной" ошибкой установки в пользовательскую директорию
+			if strings.Contains(msg.err.Error(), "installed to") {
+				us.messageManager.AddSuccess(msg.err.Error())
+			} else if strings.Contains(msg.err.Error(), "insufficient permissions") {
+				us.messageManager.AddError("Недостаточно прав для обновления. Попробуйте запустить приложение с sudo или установите в пользовательскую директорию.")
+			} else if strings.Contains(msg.err.Error(), "validation failed") {
+				us.messageManager.AddError("Ошибка валидации загруженного файла. Возможно, файл поврежден. Попробуйте позже.")
+			} else if strings.Contains(msg.err.Error(), "too small") {
+				us.messageManager.AddError("Загруженный файл слишком мал. Возможно, произошла ошибка загрузки.")
+			} else if strings.Contains(msg.err.Error(), "failed to download") {
+				us.messageManager.AddError("Ошибка загрузки обновления. Проверьте подключение к интернету.")
+			} else {
+				us.messageManager.AddError(fmt.Sprintf("Ошибка установки обновления: %v", msg.err))
+			}
 		} else {
-			us.messageManager.AddSuccess("Обновление успешно установлено! Приложение будет перезапущено.")
-			// Перезапускаем приложение через несколько секунд
+			us.messageManager.AddSuccess("Обновление успешно установлено! Приложение будет завершено.")
+			// Сбрасываем терминал и завершаем приложение через небольшую задержку
 			return us, tea.Sequence(
 				func() tea.Msg {
 					time.Sleep(2 * time.Second)
-					// Вызываем перезапуск приложения
-					if err := us.updateService.RestartApplication(); err != nil {
-						fmt.Printf("Ошибка перезапуска: %v\n", err)
-					}
-					return tea.Quit
+					us.resetTerminal()
+					os.Exit(0)
+					return nil
 				},
 			)
 		}
@@ -345,4 +358,23 @@ func (us *UpdatesScreen) Init() tea.Cmd {
 // GetName возвращает имя экрана
 func (us *UpdatesScreen) GetName() string {
 	return "updates"
+}
+
+// resetTerminal сбрасывает терминал
+func (us *UpdatesScreen) resetTerminal() {
+	// Выводим escape-последовательности для сброса терминала напрямую в stdout
+	cmd := exec.Command("reset")
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Run()
+}
+
+// isTerminal проверяет, является ли файл терминалом
+func (us *UpdatesScreen) isTerminal(file *os.File) bool {
+	info, err := file.Stat()
+	if err != nil {
+		return false
+	}
+	return (info.Mode() & os.ModeCharDevice) != 0
 }

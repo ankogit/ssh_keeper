@@ -94,6 +94,11 @@ func (us *UpdateService) DownloadAndInstallUpdate(updateInfo *UpdateInfo) error 
 		return fmt.Errorf("failed to download update: %w", err)
 	}
 
+	// Валидируем загруженный файл
+	if err := us.validateDownloadedFile(data, updateInfo.DownloadURL); err != nil {
+		return fmt.Errorf("downloaded file validation failed: %w", err)
+	}
+
 	// Определяем путь к текущему исполняемому файлу
 	currentExecutable, err := os.Executable()
 	if err != nil {
@@ -108,12 +113,12 @@ func (us *UpdateService) DownloadAndInstallUpdate(updateInfo *UpdateInfo) error 
 		return us.installDirectly(data, updateInfo.DownloadURL, currentExecutable)
 	}
 
-	// Метод 2: Установка в пользовательскую директорию
+	// Метод 2: Установка в пользовательскую директорию (предпочтительный)
 	if err := us.installToUserDirectory(data, updateInfo.DownloadURL, currentExecutable); err == nil {
 		return nil
 	}
 
-	// Метод 3: Через sudo (последний вариант)
+	// Метод 3: Установка через sudo
 	return us.installUpdateWithSudo(data, updateInfo.DownloadURL, currentExecutable)
 }
 
@@ -293,18 +298,31 @@ func (us *UpdateService) installDirectly(data []byte, downloadURL, currentExecut
 		return fmt.Errorf("failed to extract executable: %w", err)
 	}
 
+	// Создаем временную копию текущего файла для отката
+	backupFile := currentExecutable + ".backup"
+	if err := us.copyFile(currentExecutable, backupFile); err != nil {
+		return fmt.Errorf("failed to create backup: %w", err)
+	}
+
 	// Заменяем текущий файл новым
 	if err := us.copyFile(newExecutable, currentExecutable); err != nil {
+		// При ошибке восстанавливаем из backup
+		us.copyFile(backupFile, currentExecutable)
+		os.Remove(backupFile)
 		return fmt.Errorf("failed to install update: %w", err)
 	}
 
 	// Устанавливаем права на выполнение
 	if err := os.Chmod(currentExecutable, 0755); err != nil {
+		// При ошибке восстанавливаем из backup
+		us.copyFile(backupFile, currentExecutable)
+		os.Remove(backupFile)
 		return fmt.Errorf("failed to set executable permissions: %w", err)
 	}
 
-	// Удаляем временный файл
+	// Удаляем временный файл и backup после успешной установки
 	os.Remove(newExecutable)
+	os.Remove(backupFile)
 
 	return nil
 }
@@ -341,6 +359,7 @@ func (us *UpdateService) installToUserDirectory(data []byte, downloadURL, curren
 		return fmt.Errorf("failed to set executable permissions: %w", err)
 	}
 
+	// Возвращаем специальную ошибку с инструкциями
 	return fmt.Errorf("installed to %s. Please add ~/bin to your PATH and restart the application", userExecutable)
 }
 
@@ -382,11 +401,45 @@ echo "Update completed successfully!"
 
 	// Запускаем скрипт через sudo
 	cmd := exec.Command("sudo", scriptFile.Name())
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to run update script with sudo: %w\nOutput: %s", err, string(output))
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to run update script with sudo: %w", err)
 	}
 
+	return nil
+}
+
+// validateDownloadedFile проверяет загруженный файл
+func (us *UpdateService) validateDownloadedFile(data []byte, downloadURL string) error {
+	// Проверяем минимальный размер файла (должен быть больше 1MB)
+	if len(data) < 1024*1024 {
+		return fmt.Errorf("downloaded file too small (%d bytes), possible corruption", len(data))
+	}
+
+	// Проверяем, что файл начинается с правильного заголовка ELF/Mach-O/PE
+	if len(data) >= 4 {
+		// ELF header (Linux)
+		if data[0] == 0x7f && data[1] == 'E' && data[2] == 'L' && data[3] == 'F' {
+			return nil
+		}
+		// Mach-O header (macOS)
+		if data[0] == 0xfe && data[1] == 0xed && data[2] == 0xfa && data[3] == 0xce {
+			return nil
+		}
+		if data[0] == 0xce && data[1] == 0xfa && data[2] == 0xed && data[3] == 0xfe {
+			return nil
+		}
+		// PE header (Windows)
+		if len(data) >= 64 && data[0] == 'M' && data[1] == 'Z' {
+			return nil
+		}
+	}
+
+	// Если не распознали заголовок, но файл достаточно большой, считаем валидным
+	// (возможно, это архив tar.gz)
 	return nil
 }
 
