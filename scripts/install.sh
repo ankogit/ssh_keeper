@@ -164,6 +164,20 @@ show_usage() {
     echo -e "${YELLOW}   https://github.com/${REPO}/releases${NC}"
 }
 
+should_reinstall() {
+    # Неинтерактивный режим: curl | bash, CI, FORCE=1, --yes/--force
+    if [[ "${FORCE:-}" == "1" || "${1:-}" == "--yes" || "${1:-}" == "-y" || "${1:-}" == "--force" ]]; then
+        return 0
+    fi
+    if [[ ! -t 0 ]]; then
+        echo -e "${YELLOW}⚠️  Non-interactive install detected — updating existing installation.${NC}"
+        return 0
+    fi
+    read -p "Do you want to reinstall/update? (y/N): " -n 1 -r
+    echo
+    [[ $REPLY =~ ^[Yy]$ ]]
+}
+
 # Main installation process
 main() {
     echo -e "${BLUE}"
@@ -175,23 +189,19 @@ main() {
     echo "  ║                                                              ║"
     echo "  ╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
-    
-    # Check if already installed
+
     if command -v "$BINARY_NAME" >/dev/null 2>&1; then
         echo -e "${YELLOW}⚠️  SSH Keeper is already installed at: $(which $BINARY_NAME)${NC}"
-        read -p "Do you want to reinstall? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        if ! should_reinstall "$@"; then
             echo -e "${BLUE}Installation cancelled.${NC}"
             exit 0
         fi
     fi
-    
-    # Install
+
     install_ssh_keeper
     verify_installation
     show_usage
 }
 
 # Run main function
-main "$@"# Force update Sun Oct  5 19:52:33 MSK 2025
+main "$@"
