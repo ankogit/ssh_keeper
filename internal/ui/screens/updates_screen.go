@@ -169,8 +169,8 @@ func (us *UpdatesScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Проверяем, является ли это "успешной" ошибкой установки в пользовательскую директорию
 			if strings.Contains(msg.err.Error(), "installed to") {
 				us.messageManager.AddSuccess(msg.err.Error())
-			} else if strings.Contains(msg.err.Error(), "insufficient permissions") {
-				us.messageManager.AddError("Недостаточно прав для обновления. Попробуйте запустить приложение с sudo или установите в пользовательскую директорию.")
+			} else if strings.Contains(msg.err.Error(), "нет прав на запись") || strings.Contains(msg.err.Error(), "insufficient permissions") {
+				us.messageManager.AddError("Не удалось обновить бинарник. Запустите один раз: sudo ssh-keeper — и обновитесь из приложения, либо поставьте через install.sh.")
 			} else if strings.Contains(msg.err.Error(), "validation failed") {
 				us.messageManager.AddError("Ошибка валидации загруженного файла. Возможно, файл поврежден. Попробуйте позже.")
 			} else if strings.Contains(msg.err.Error(), "too small") {

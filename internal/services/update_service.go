@@ -88,45 +88,38 @@ func (us *UpdateService) CheckForUpdates() (*UpdateInfo, error) {
 	}, nil
 }
 
-// DownloadAndInstallUpdate загружает и устанавливает обновление
+// DownloadAndInstallUpdate загружает и устанавливает обновление.
+// Если текущий бинарник доступен на запись (в том числе через sudo) — заменяет его.
+// Иначе ставит копию в ~/bin и просит запускать её.
 func (us *UpdateService) DownloadAndInstallUpdate(updateInfo *UpdateInfo) error {
-	// Проверяем, что приложение не запущено с sudo
-	if us.isRunningAsRoot() {
-		return fmt.Errorf("application is running with elevated privileges. Please run without sudo for safe updates")
-	}
-
-	// Загружаем файл
 	data, err := us.downloadFile(updateInfo.DownloadURL)
 	if err != nil {
 		return fmt.Errorf("failed to download update: %w", err)
 	}
 
-	// Валидируем загруженный файл
 	if err := us.validateDownloadedFile(data, updateInfo.DownloadURL); err != nil {
 		return fmt.Errorf("downloaded file validation failed: %w", err)
 	}
 
-	// Определяем путь к текущему исполняемому файлу
 	currentExecutable, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to get current executable path: %w", err)
 	}
-
-	// Пробуем разные методы установки по порядку
-	execDir := filepath.Dir(currentExecutable)
-
-	// Метод 1: Установка в пользовательскую директорию (всегда предпочтительный)
-	if err := us.installToUserDirectory(data, updateInfo.DownloadURL, currentExecutable); err == nil {
-		return nil
+	// На случай запуска через symlink (brew и т.п.) берём реальный путь.
+	if resolved, err := filepath.EvalSymlinks(currentExecutable); err == nil {
+		currentExecutable = resolved
 	}
 
-	// Метод 2: Прямая установка (только если есть права и это безопасно)
+	execDir := filepath.Dir(currentExecutable)
 	if us.canWriteToDirectory(execDir) {
 		return us.installDirectly(data, updateInfo.DownloadURL, currentExecutable)
 	}
 
-	// Метод 3: Предложить пользователю запустить с sudo
-	return fmt.Errorf("insufficient permissions to update application in %s. Please run the application with sudo to update: sudo ssh-keeper", execDir)
+	path, err := us.installToUserDirectory(data, updateInfo.DownloadURL)
+	if err != nil {
+		return fmt.Errorf("нет прав на запись в %s и не удалось установить в ~/bin: %w", execDir, err)
+	}
+	return fmt.Errorf("installed to %s. Добавьте ~/bin в PATH перед /usr/local/bin и перезапустите: ssh-keeper", path)
 }
 
 // getLatestRelease получает информацию о последнем релизе с GitHub
@@ -337,40 +330,32 @@ func (us *UpdateService) installDirectly(data []byte, downloadURL, currentExecut
 	return nil
 }
 
-// installToUserDirectory устанавливает в пользовательскую директорию
-func (us *UpdateService) installToUserDirectory(data []byte, downloadURL, currentExecutable string) error {
-	// Получаем домашнюю директорию
+// installToUserDirectory устанавливает бинарник в ~/bin и возвращает путь к нему.
+func (us *UpdateService) installToUserDirectory(data []byte, downloadURL string) (string, error) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("failed to get home directory: %w", err)
+		return "", fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	// Создаем директорию ~/bin
 	userBin := filepath.Join(homeDir, "bin")
 	if err := os.MkdirAll(userBin, 0755); err != nil {
-		return fmt.Errorf("failed to create user bin directory: %w", err)
+		return "", fmt.Errorf("failed to create user bin directory: %w", err)
 	}
 
-	// Извлекаем новый исполняемый файл
 	newExecutable, err := us.extractExecutable(data, downloadURL)
 	if err != nil {
-		return fmt.Errorf("failed to extract executable: %w", err)
+		return "", fmt.Errorf("failed to extract executable: %w", err)
 	}
 	defer os.Remove(newExecutable)
 
-	// Устанавливаем в ~/bin/ssh-keeper
 	userExecutable := filepath.Join(userBin, "ssh-keeper")
 	if err := us.copyFile(newExecutable, userExecutable); err != nil {
-		return fmt.Errorf("failed to install to user directory: %w", err)
+		return "", fmt.Errorf("failed to install to user directory: %w", err)
 	}
-
-	// Устанавливаем права на выполнение
 	if err := os.Chmod(userExecutable, 0755); err != nil {
-		return fmt.Errorf("failed to set executable permissions: %w", err)
+		return "", fmt.Errorf("failed to set executable permissions: %w", err)
 	}
-
-	// Возвращаем специальную ошибку с инструкциями
-	return fmt.Errorf("installed to %s. Please add ~/bin to your PATH and restart the application", userExecutable)
+	return userExecutable, nil
 }
 
 // validateDownloadedFile проверяет загруженный файл
@@ -402,24 +387,6 @@ func (us *UpdateService) validateDownloadedFile(data []byte, downloadURL string)
 	// Если не распознали заголовок, но файл достаточно большой, считаем валидным
 	// (возможно, это архив tar.gz)
 	return nil
-}
-
-// isRunningAsRoot проверяет, запущено ли приложение с правами root
-func (us *UpdateService) isRunningAsRoot() bool {
-	// Проверяем переменные окружения sudo
-	if os.Getenv("SUDO_USER") != "" || os.Getenv("SUDO_UID") != "" {
-		return true
-	}
-
-	// Проверяем UID (Unix) или права администратора (Windows)
-	if runtime.GOOS == "windows" {
-		// На Windows проверяем, запущено ли с правами администратора
-		// Это упрощенная проверка - в реальности может быть сложнее
-		return false // Пока что считаем, что на Windows не запущено с правами администратора
-	}
-
-	// На Unix-системах проверяем UID
-	return os.Geteuid() == 0
 }
 
 // canWriteToDirectory проверяет, можно ли записывать в директорию
