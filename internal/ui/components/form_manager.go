@@ -11,6 +11,7 @@ type FormManager struct {
 	fields       map[string]*FormField
 	fieldOrder   []string
 	currentField string
+	instructions string
 }
 
 // NewFormManager создает новый менеджер формы
@@ -110,10 +111,16 @@ func (fm *FormManager) GetCurrentFieldModel() *FormField {
 	return nil
 }
 
-// ValidateAll валидирует все поля
+// SetInstructions задаёт подсказку внизу формы.
+func (fm *FormManager) SetInstructions(text string) {
+	fm.instructions = text
+}
+
+// ValidateAll валидирует видимые поля
 func (fm *FormManager) ValidateAll() bool {
 	allValid := true
-	for _, field := range fm.fields {
+	for _, fieldName := range fm.fieldOrder {
+		field := fm.fields[fieldName]
 		if !field.Validate() {
 			allValid = false
 		}
@@ -143,11 +150,14 @@ func (fm *FormManager) RenderForm() string {
 		}
 	}
 
-	// Инструкции
+	instructionsText := fm.instructions
+	if instructionsText == "" {
+		instructionsText = "Tab — следующее поле • Ctrl+S — сохранить • Esc — назад"
+	}
 	instructions := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(styles.ColorMuted)).
 		Italic(styles.TextItalic).
-		Render("Tab - след. поле • ↑/↓ - прокрутка • Enter - сохранить • Ctrl+D - удалить • Esc - назад")
+		Render(instructionsText)
 	formContent = append(formContent, instructions)
 
 	return lipgloss.JoinVertical(lipgloss.Left, formContent...)

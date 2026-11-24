@@ -254,11 +254,8 @@ func (ss *SettingsScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "ctrl+q":
 			return ss, tea.Quit
-		case "esc":
-			// Возвращаемся к главному меню
-			return ss, func() tea.Msg {
-				return ui.NavigateToMsg{ScreenName: "main_menu"}
-			}
+		case "esc", "`":
+			return ss, ui.GoBackCmd()
 		case "enter":
 			// Обрабатываем выбор элемента
 			selectedItem := ss.list.SelectedItem()

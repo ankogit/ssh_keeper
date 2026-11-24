@@ -120,13 +120,13 @@ func (scs *SSHConfigService) LoadConfig() (*models.SSHConfig, error) {
 				if count, err := strconv.Atoi(value); err == nil {
 					currentHost.ServerAliveCountMax = count
 				}
-			case "ID":
+			case "id":
 				currentHost.ID = value
-			case "CreatedAt":
+			case "createdat":
 				if t, err := time.Parse(time.RFC3339, value); err == nil {
 					currentHost.CreatedAt = t
 				}
-			case "UpdatedAt":
+			case "updatedat":
 				if t, err := time.Parse(time.RFC3339, value); err == nil {
 					currentHost.UpdatedAt = t
 				}

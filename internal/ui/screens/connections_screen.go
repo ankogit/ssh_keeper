@@ -3,7 +3,6 @@ package screens
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"ssh-keeper/internal/models"
 	"ssh-keeper/internal/services"
 	"ssh-keeper/internal/ssh"
@@ -11,6 +10,7 @@ import (
 	"ssh-keeper/internal/ui/components"
 	"ssh-keeper/internal/ui/styles"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -18,346 +18,483 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// ConnectionsScreen представляет экран управления подключениями
+type promptKind int
+
+const (
+	promptNone promptKind = iota
+	promptDelete
+	promptTrust
+	promptReplace
+)
+
+type listPrompt struct {
+	kind  promptKind
+	conn  models.Connection
+	check ssh.CheckResult
+}
+
+type hostKeyCheckedMsg struct {
+	id     int
+	conn   models.Connection
+	result ssh.CheckResult
+}
+
+type sessionFinishedMsg struct {
+	name     string
+	passFile string
+	err      error
+}
+
+// ConnectionsScreen представляет экран управления подключениями.
 type ConnectionsScreen struct {
 	*BaseScreen
 	list           list.Model
 	searchInput    textinput.Model
-	connectionSvc  *services.ConnectionService
+	searchActive   bool
 	allItems       []list.Item
 	messageManager *components.MessageManager
+	prompt         listPrompt
+	checking       bool
+	checkID        int
+	width          int
+	height         int
 }
 
-// NewConnectionsScreen создает новый экран подключений
+// NewConnectionsScreen создает новый экран подключений.
 func NewConnectionsScreen() *ConnectionsScreen {
-	baseScreen := NewBaseScreen("SSH Keeper - Подключения")
+	baseScreen := NewBaseScreen("SSH Keeper")
 
-	// Получаем подключения через глобальный сервис
-	connections := services.GetConnections()
-
-	// Создаем элементы списка
 	var listItems []list.Item
-	for _, conn := range connections {
+	for _, conn := range services.GetConnections() {
 		listItems = append(listItems, components.NewConnectionItem(conn))
 	}
 
-	// Создаем список (компактный, без фильтрации)
 	l := list.New(listItems, list.NewDefaultDelegate(), 0, 0)
 	l.SetShowTitle(false)
 	l.SetShowStatusBar(false)
-	l.SetFilteringEnabled(false) // Отключаем встроенную фильтрацию
-	l.SetShowHelp(false)         // Отключаем встроенную справку
+	l.SetFilteringEnabled(false)
+	l.SetShowHelp(false)
+	l.KeyMap.Quit.SetKeys("ctrl+q")
+	l.Styles.PaginationStyle = lipgloss.NewStyle().Margin(1, 0, 0, 0)
 
-	// Отключаем обработку клавиши 'q' в списке
-	l.KeyMap.Quit.SetKeys("ctrl+q") // Меняем с "q" на "ctrl+q"
-
-	l.Styles.PaginationStyle = lipgloss.NewStyle().
-		Margin(1, 0, 0, 0)
-
-	// Создаем input для поиска
 	searchInput := textinput.New()
-	searchInput.Placeholder = "Поиск подключений..."
-	searchInput.Focus()
+	searchInput.Placeholder = "Поиск..."
 	searchInput.CharLimit = 25
-	searchInput.Width = 40 // Фиксируем ширину при создании
-
-	// Создаем менеджер сообщений
-	messageManager := components.NewMessageManager()
+	searchInput.Width = 40
+	searchInput.Blur()
 
 	return &ConnectionsScreen{
 		BaseScreen:     baseScreen,
 		list:           l,
 		searchInput:    searchInput,
-		connectionSvc:  services.GetGlobalConnectionService(),
 		allItems:       listItems,
-		messageManager: messageManager,
+		messageManager: components.NewMessageManager(),
 	}
 }
 
-// refreshConnections обновляет список подключений
 func (cs *ConnectionsScreen) refreshConnections() {
-	// Перезагружаем подключения из файла
-	err := services.ReloadConnections()
-	if err != nil {
-		cs.messageManager.AddError(fmt.Sprintf("Ошибка загрузки подключений: %v", err))
+	if err := services.ReloadConnections(); err != nil {
+		cs.show(components.MessageTypeError, fmt.Sprintf("Ошибка загрузки подключений: %v", err))
 		return
 	}
-
-	// Получаем актуальные подключения
-	connections := services.GetConnections()
-
-	// Создаем новые элементы списка
 	var listItems []list.Item
-	for _, conn := range connections {
+	for _, conn := range services.GetConnections() {
 		listItems = append(listItems, components.NewConnectionItem(conn))
 	}
-
-	// Обновляем список
 	cs.allItems = listItems
-	cs.list.SetItems(listItems)
+	cs.filterList()
 }
 
-// editSelectedConnection редактирует выбранное подключение
-func (cs *ConnectionsScreen) editSelectedConnection() tea.Cmd {
-	selectedItem := cs.list.SelectedItem()
-	if item, ok := selectedItem.(components.ConnectionItem); ok {
-		conn := item.GetConnection()
-		// Добавляем отладочную информацию
-		cs.messageManager.AddInfo(fmt.Sprintf("Редактируем подключение: %s (ID: %s)", conn.Name, conn.ID))
-		// Переходим к экрану редактирования с данными подключения
-		return ui.NavigateToWithDataCmd("edit_connection", conn)
+func (cs *ConnectionsScreen) isAddSelected() bool {
+	_, ok := cs.list.SelectedItem().(components.AddConnectionItem)
+	return ok
+}
+
+func (cs *ConnectionsScreen) selected() (models.Connection, bool) {
+	item, ok := cs.list.SelectedItem().(components.ConnectionItem)
+	if !ok {
+		return models.Connection{}, false
 	}
-	cs.messageManager.AddError("Не удалось получить данные подключения")
-	return nil
+	return item.GetConnection(), true
 }
 
-// deleteSelectedConnection удаляет выбранное подключение
-func (cs *ConnectionsScreen) deleteSelectedConnection() tea.Cmd {
-	selectedItem := cs.list.SelectedItem()
-	if item, ok := selectedItem.(components.ConnectionItem); ok {
-		conn := item.GetConnection()
+func (cs *ConnectionsScreen) editSelectedConnection() tea.Cmd {
+	conn, ok := cs.selected()
+	if !ok {
+		cs.show(components.MessageTypeError, "Нет выбранного подключения")
+		return nil
+	}
+	return ui.NavigateToWithDataCmd("edit_connection", conn)
+}
 
-		// Удаляем подключение через сервис
-		err := services.DeleteConnection(conn.ID)
-		if err != nil {
-			cs.messageManager.AddError(fmt.Sprintf("Ошибка удаления: %v", err))
+func (cs *ConnectionsScreen) askDelete() {
+	conn, ok := cs.selected()
+	if !ok {
+		cs.show(components.MessageTypeError, "Нет выбранного подключения")
+		return
+	}
+	cs.prompt = listPrompt{kind: promptDelete, conn: conn}
+}
+
+func (cs *ConnectionsScreen) beginConnect() tea.Cmd {
+	conn, ok := cs.selected()
+	if !ok {
+		cs.show(components.MessageTypeError, "Нет выбранного подключения")
+		return nil
+	}
+	cs.checking = true
+	cs.checkID++
+	id := cs.checkID
+	cs.show(components.MessageTypeInfo, fmt.Sprintf("Проверяем ключ %s...", conn.Host))
+	return func() tea.Msg {
+		return hostKeyCheckedMsg{id: id, conn: conn, result: ssh.Check(conn.Host, conn.Port)}
+	}
+}
+
+func (cs *ConnectionsScreen) handleHostKey(msg hostKeyCheckedMsg) tea.Cmd {
+	if msg.id != cs.checkID {
+		return nil
+	}
+	cs.checking = false
+	switch msg.result.Status {
+	case ssh.StatusTrusted:
+		return cs.startSession(msg.conn)
+	case ssh.StatusUnknown:
+		cs.messageManager.ClearMessages()
+		cs.prompt = listPrompt{kind: promptTrust, conn: msg.conn, check: msg.result}
+		return nil
+	case ssh.StatusChanged:
+		cs.messageManager.ClearMessages()
+		cs.prompt = listPrompt{kind: promptReplace, conn: msg.conn, check: msg.result}
+		return nil
+	default:
+		text := "сервер недоступен"
+		if msg.result.Err != nil {
+			text = msg.result.Err.Error()
+		}
+		cs.show(components.MessageTypeError, "Не удалось проверить ключ: "+text)
+		return nil
+	}
+}
+
+func (cs *ConnectionsScreen) acceptPrompt() tea.Cmd {
+	current := cs.prompt
+	cs.prompt = listPrompt{}
+	switch current.kind {
+	case promptDelete:
+		if err := services.DeleteConnection(current.conn.ID); err != nil {
+			cs.show(components.MessageTypeError, fmt.Sprintf("Ошибка удаления: %v", err))
 			return nil
 		}
-
-		// Обновляем список
 		cs.refreshConnections()
-
-		// Показываем сообщение об успехе
-		cs.messageManager.AddSuccess(fmt.Sprintf("Подключение '%s' удалено", conn.Name))
+		cs.show(components.MessageTypeSuccess, fmt.Sprintf("Подключение «%s» удалено", current.conn.Name))
+		return nil
+	case promptTrust, promptReplace:
+		if current.check.Presented == nil {
+			cs.show(components.MessageTypeError, "Нет ключа сервера для записи")
+			return nil
+		}
+		path, err := ssh.KnownHostsPath()
+		if err != nil {
+			cs.show(components.MessageTypeError, err.Error())
+			return nil
+		}
+		port := current.conn.Port
+		if port == 0 {
+			port = 22
+		}
+		if err := ssh.SaveKey(path, current.conn.Host, port, current.check.Presented); err != nil {
+			cs.show(components.MessageTypeError, fmt.Sprintf("Не удалось записать known_hosts: %v", err))
+			return nil
+		}
+		return cs.startSession(current.conn)
+	default:
+		return nil
 	}
-	return nil
 }
 
-// Update обрабатывает обновления состояния
-func (cs *ConnectionsScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
+func (cs *ConnectionsScreen) startSession(conn models.Connection) tea.Cmd {
+	cmd, passFile, err := ssh.Prepare(&conn)
+	if err != nil {
+		if passFile != "" {
+			os.Remove(passFile)
+		}
+		cs.show(components.MessageTypeError, err.Error())
+		return nil
+	}
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
+		return sessionFinishedMsg{name: conn.Name, passFile: passFile, err: err}
+	})
+}
 
+// Update обрабатывает события списка.
+func (cs *ConnectionsScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		cs.SetSize(msg.Width, msg.Height)
-		cs.list.SetSize(msg.Width-4, msg.Height-15) // Учитываем место для поиска
+		cs.width = msg.Width
+		cs.height = msg.Height
+		cs.resizeList()
 		return cs, nil
-
 	case ui.NavigateToMsg:
-		// Обновляем список при навигации к экрану
 		if msg.ScreenName == "connections" {
+			cs.prompt = listPrompt{}
+			cs.checking = false
 			cs.refreshConnections()
 		}
 		return cs, nil
-
+	case hostKeyCheckedMsg:
+		return cs, cs.handleHostKey(msg)
+	case sessionFinishedMsg:
+		if msg.passFile != "" {
+			os.Remove(msg.passFile)
+		}
+		if msg.err != nil {
+			cs.show(components.MessageTypeError, fmt.Sprintf("Сессия «%s» завершилась с ошибкой: %v", displayName(msg.name), msg.err))
+		} else {
+			cs.show(components.MessageTypeSuccess, fmt.Sprintf("Сессия «%s» завершена", displayName(msg.name)))
+		}
+		return cs, nil
 	case tea.KeyMsg:
+		return cs.handleKey(msg)
+	}
 
+	if cs.prompt.kind == promptNone && !cs.searchActive && !cs.checking {
+		var cmd tea.Cmd
+		cs.list, cmd = cs.list.Update(msg)
+		return cs, cmd
+	}
+	return cs, nil
+}
+
+func (cs *ConnectionsScreen) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if cs.prompt.kind != promptNone {
+		switch msg.String() {
+		case "ctrl+c":
+			return cs, tea.Quit
+		case "y", "Y", "enter":
+			return cs, cs.acceptPrompt()
+		case "n", "N", "esc":
+			cs.prompt = listPrompt{}
+			return cs, nil
+		}
+		return cs, nil
+	}
+
+	if cs.checking {
 		switch msg.String() {
 		case "ctrl+c":
 			return cs, tea.Quit
 		case "esc":
-			// Возврат к главному меню
-			return cs, ui.GoBackCmd()
-		case "enter":
-			// Подключиться к выбранному серверу
-			cs.connectToSelected()
-		case "ctrl+a":
-			// TODO: Добавить новое подключение
-		case "ctrl+e":
-			// Редактировать выбранное подключение
-			return cs, cs.editSelectedConnection()
-		case "ctrl+d":
-			// Удалить выбранное подключение
-			return cs, cs.deleteSelectedConnection()
+			cs.checkID++
+			cs.checking = false
+			cs.show(components.MessageTypeInfo, "Проверка отменена")
+			return cs, nil
 		}
+		return cs, nil
 	}
 
-	// Обновляем поиск
-	cs.searchInput, cmd = cs.searchInput.Update(msg)
-
-	// Фильтруем список при изменении поиска
-	cs.filterList()
-
-	// Обновляем список
-	var listCmd tea.Cmd
-	cs.list, listCmd = cs.list.Update(msg)
-	if listCmd != nil {
-		cmd = listCmd
+	if cs.searchActive {
+		switch msg.String() {
+		case "ctrl+c":
+			return cs, tea.Quit
+		case "esc":
+			cs.searchInput.SetValue("")
+			cs.searchInput.Blur()
+			cs.searchActive = false
+			cs.filterList()
+			return cs, nil
+		case "enter":
+			cs.searchInput.Blur()
+			cs.searchActive = false
+			return cs, nil
+		}
+		var cmd tea.Cmd
+		cs.searchInput, cmd = cs.searchInput.Update(msg)
+		cs.filterList()
+		return cs, cmd
 	}
 
-	// Обновляем базовый экран
-	baseScreen, baseCmd := cs.BaseScreen.Update(msg)
-	cs.BaseScreen = baseScreen.(*BaseScreen)
-	if baseCmd != nil {
-		cmd = baseCmd
+	switch msg.String() {
+	case "ctrl+c", "esc":
+		return cs, tea.Quit
+	case "enter":
+		if cs.isAddSelected() {
+			return cs, ui.NavigateToCmd("add_connection")
+		}
+		return cs, cs.beginConnect()
+	case "a":
+		return cs, ui.NavigateToCmd("add_connection")
+	case "e":
+		if cs.isAddSelected() {
+			return cs, ui.NavigateToCmd("add_connection")
+		}
+		return cs, cs.editSelectedConnection()
+	case "d":
+		if cs.isAddSelected() {
+			cs.show(components.MessageTypeInfo, "Это кнопка добавления, а не сервер")
+			return cs, nil
+		}
+		cs.askDelete()
+		return cs, nil
+	case "`":
+		return cs, ui.NavigateToCmd("settings")
+	case "/":
+		cs.searchActive = true
+		cs.searchInput.Focus()
+		return cs, textinput.Blink
 	}
 
+	var cmd tea.Cmd
+	cs.list, cmd = cs.list.Update(msg)
 	return cs, cmd
 }
 
-// View возвращает строку для отрисовки
+// View возвращает строку для отрисовки.
 func (cs *ConnectionsScreen) View() string {
 	cs.updateContent()
 	return cs.BaseScreen.View()
 }
 
-// updateContent обновляет содержимое экрана
 func (cs *ConnectionsScreen) updateContent() {
-	// Стили - принудительно фиксируем размер
-	searchStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(styles.ColorWarning)).
-		Padding(0, 1) // Отступы внутри
-
+	cs.resizeList()
 	instructionsStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(styles.ColorMuted)).
-		Italic(styles.TextItalic).
-		Width(80) // Фиксируем ширину для предотвращения переносов
+		Italic(styles.TextItalic)
 
-	// Создаем поиск
-	searchView := searchStyle.Render(cs.searchInput.View())
+	parts := []string{cs.list.View()}
+	if cs.searchActive || cs.searchInput.Value() != "" {
+		border := styles.ColorMuted
+		if cs.searchActive {
+			border = styles.ColorWarning
+		}
+		searchView := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(border)).
+			Padding(0, 1).
+			Render(cs.searchInput.View())
+		parts = []string{searchView, "", cs.list.View()}
+	}
 
-	// Получаем содержимое списка
-	listContent := cs.list.View()
+	if promptText := cs.promptText(); promptText != "" {
+		parts = append(parts, lipgloss.NewStyle().
+			Foreground(lipgloss.Color(styles.ColorWarning)).
+			Render(promptText))
+	}
 
-	// Инструкции - принудительно применяем стиль к каждой строке
-	instructionsText := "↑/↓ нав. • Enter подкл. • Ctrl+E ред. • Ctrl+D удал. • Esc назад"
-	instructions := instructionsStyle.Render(instructionsText)
-
-	// Добавляем сообщения
-	messages := cs.messageManager.RenderMessages(80)
-
-	// Объединяем все
-	var contentParts []string
-	contentParts = append(contentParts, searchView, "", listContent, instructions, messages)
-
-	content := lipgloss.JoinVertical(lipgloss.Left, contentParts...)
-
-	cs.SetContent(content)
+	parts = append(parts, instructionsStyle.Render(cs.instructions()))
+	if messages := cs.messageManager.RenderMessages(cs.messageWidth()); messages != "" {
+		parts = append(parts, messages)
+	}
+	cs.SetContent(lipgloss.JoinVertical(lipgloss.Left, parts...))
 }
 
-// Init инициализирует экран
+func (cs *ConnectionsScreen) instructions() string {
+	switch {
+	case cs.prompt.kind != promptNone:
+		return "y — подтвердить • n или Esc — отмена"
+	case cs.checking:
+		return "Проверяем ключ сервера... • Esc — отмена"
+	case cs.searchActive:
+		return "Введите запрос • Enter — закрыть поиск • Esc — сбросить"
+	default:
+		return "/ поиск • ↑/↓ выбор • Enter открыть • e править • d удалить • ` настройки • Esc выход"
+	}
+}
+
+func (cs *ConnectionsScreen) promptText() string {
+	switch cs.prompt.kind {
+	case promptDelete:
+		return fmt.Sprintf("Удалить «%s»? y — да, n — нет", displayName(cs.prompt.conn.Name))
+	case promptTrust:
+		return fmt.Sprintf("Новый ключ %s (%s). Доверять и подключиться? y — да, n — нет",
+			cs.prompt.check.PresentedFingerprint, endpoint(cs.prompt.conn))
+	case promptReplace:
+		return fmt.Sprintf("Ключ %s изменился. Было %s, стало %s. Перезаписать known_hosts и подключиться? y — да, n — нет",
+			endpoint(cs.prompt.conn), cs.prompt.check.StoredFingerprint, cs.prompt.check.PresentedFingerprint)
+	default:
+		return ""
+	}
+}
+
+func (cs *ConnectionsScreen) resizeList() {
+	height := cs.height - 12
+	if cs.searchActive || cs.searchInput.Value() != "" {
+		height -= 3
+	}
+	if cs.prompt.kind != promptNone {
+		height -= 3
+	}
+	if height < 5 {
+		height = 5
+	}
+	width := cs.width - 4
+	if width < 10 {
+		width = 10
+	}
+	cs.list.SetSize(width, height)
+}
+
+func (cs *ConnectionsScreen) messageWidth() int {
+	if cs.width > 20 {
+		return cs.width - 10
+	}
+	return 70
+}
+
+// Init перезагружает подключения.
 func (cs *ConnectionsScreen) Init() tea.Cmd {
-	// Перезагружаем подключения при инициализации
 	cs.refreshConnections()
 	return nil
 }
 
-// GetName возвращает имя экрана
+// GetName возвращает имя экрана.
 func (cs *ConnectionsScreen) GetName() string {
 	return "connections"
 }
 
-// filterList фильтрует список по поисковому запросу
 func (cs *ConnectionsScreen) filterList() {
-	query := cs.searchInput.Value()
+	query := strings.ToLower(cs.searchInput.Value())
 	if query == "" {
-		// Показываем все элементы
-		cs.list.SetItems(cs.allItems)
+		cs.list.SetItems(append(append([]list.Item{}, cs.allItems...), components.AddConnectionItem{}))
 		return
 	}
-
-	// Фильтруем элементы
-	var filteredItems []list.Item
+	var filtered []list.Item
 	for _, item := range cs.allItems {
-		if connItem, ok := item.(components.ConnectionItem); ok {
-			// Поиск по названию, хосту и пользователю
-			if strings.Contains(strings.ToLower(connItem.Title()), strings.ToLower(query)) ||
-				strings.Contains(strings.ToLower(connItem.Description()), strings.ToLower(query)) ||
-				strings.Contains(strings.ToLower(connItem.FilterValue()), strings.ToLower(query)) {
-				filteredItems = append(filteredItems, item)
-			}
+		connItem, ok := item.(components.ConnectionItem)
+		if !ok {
+			continue
+		}
+		haystack := strings.ToLower(connItem.Title() + " " + connItem.Description() + " " + connItem.FilterValue())
+		if strings.Contains(haystack, query) {
+			filtered = append(filtered, item)
 		}
 	}
-
-	cs.list.SetItems(filteredItems)
+	filtered = append(filtered, components.AddConnectionItem{})
+	cs.list.SetItems(filtered)
 }
 
-// connectToSelected подключается к выбранному серверу
-func (cs *ConnectionsScreen) connectToSelected() {
-	selectedItem := cs.list.SelectedItem()
-	if item, ok := selectedItem.(components.ConnectionItem); ok {
-		conn := item.GetConnection()
-		// Создаем SSH экран и запускаем подключение
-		cs.launchSSHSession(&conn)
+func (cs *ConnectionsScreen) show(kind components.MessageType, text string) {
+	cs.messageManager.ClearMessages()
+	cs.messageManager.AddMessage(components.Message{
+		Type:      kind,
+		Text:      text,
+		Timestamp: time.Now(),
+		Duration:  8 * time.Second,
+	})
+}
+
+func displayName(name string) string {
+	if name == "" {
+		return "подключение"
 	}
+	return name
 }
 
-// launchSSHSession запускает SSH сессию
-func (cs *ConnectionsScreen) launchSSHSession(conn *models.Connection) {
-	// Восстанавливаем терминал перед запуском SSH
-	cs.restoreTerminal(false)
-
-	// Создаем соответствующий SSH клиент на основе типа аутентификации
-	factory := ssh.NewClientFactory()
-	sshClient := factory.CreateClient(conn)
-
-	// Если это клиент с паролем, устанавливаем пароль
-	if passwordClient, ok := sshClient.(*ssh.PasswordClient); ok {
-		if conn.HasPassword {
-			// Если пароль сохранен в модели, используем его
-			if conn.Password != "" {
-				passwordClient.SetPassword(conn.Password)
-			}
-			// Если пароля нет, не устанавливаем его - пользователь введет вручную
-		}
+func endpoint(conn models.Connection) string {
+	port := conn.Port
+	if port == 0 {
+		port = 22
 	}
-
-	// Выводим информацию о подключении
-	fmt.Printf("Подключение к %s (%s:%d) как %s...\n",
-		conn.Name, conn.Host, conn.Port, conn.User)
-	fmt.Printf("Команда: %s\n", sshClient.GetConnectionString())
-	fmt.Println("Запускаем SSH процесс...")
-
-	// Запускаем SSH подключение (это закроет наше приложение)
-	sshClient.Connect()
-
-	// Если SSH завершился успешно, восстанавливаем терминал и закрываем приложение
-	fmt.Println("SSH сессия завершена. Приложение закрывается...")
-	cs.restoreTerminal(true)
-	os.Exit(0)
-}
-
-// restoreTerminal восстанавливает терминал
-func (cs *ConnectionsScreen) restoreTerminal(withReset bool) {
-	// Радикальное восстановление терминалае
-	fmt.Print("\033[?1049l") // Выход из альтернативного буфера
-	fmt.Print("\033[?25h")   // Показать курсор
-	fmt.Print("\033[?2004l") // Отключаем bracketed paste mode
-	fmt.Print("\033[?1l")    // Отключаем application cursor keys
-	fmt.Print("\033[?7h")    // Включаем auto wrap mode
-	fmt.Print("\033[?12l")   // Отключаем local echo
-	fmt.Print("\033[?1000l") // Отключаем mouse reporting
-	fmt.Print("\033[?1001l") // Отключаем mouse reporting
-	fmt.Print("\033[?1002l") // Отключаем mouse reporting
-	fmt.Print("\033[?1003l") // Отключаем mouse reporting
-	fmt.Print("\033[?1005l") // Отключаем mouse reporting
-	fmt.Print("\033[?1006l") // Отключаем mouse reporting
-	fmt.Print("\033[?1015l") // Отключаем mouse reporting
-	fmt.Print("\033[?25h")   // Показать курсор
-	fmt.Print("\033[0m")     // Сбрасываем все атрибуты
-	fmt.Print("\033c")       // Полный сброс терминала
-	fmt.Print("\033[2J")     // Очищаем экран
-	fmt.Print("\033[H")      // Перемещаем курсор в начало
-	fmt.Print("\033[?25h")   // Показать курсор
-	fmt.Print("\033[0m")     // Сбрасываем все атрибуты
-
-	// Радикальная защита через reset и stty
-	if withReset {
-		cmd := exec.Command("reset")
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Run()
-		exec.Command("stty", "sane").Run()
-		exec.Command("tput", "reset").Run()
-	}
-
-}
-
-// restoreTUI восстанавливает TUI
-func (cs *ConnectionsScreen) restoreTUI() {
-	// Возвращаемся в альтернативный буфер
-	fmt.Print("\033[?1049h") // Вход в альтернативный буфер
-	fmt.Print("\033[?25l")   // Скрыть курсор
+	return fmt.Sprintf("%s:%d", conn.Host, port)
 }

@@ -1,6 +1,8 @@
 package components
 
 import (
+	"strings"
+
 	"ssh-keeper/internal/ui/styles"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -39,6 +41,7 @@ type FormField struct {
 	buttonField *ButtonField
 	value       string
 	hasError    bool
+	errorText   string
 	focused     bool
 	visible     bool
 }
@@ -148,6 +151,15 @@ func (ff *FormField) SetValue(value string) {
 // SetError устанавливает ошибку для поля
 func (ff *FormField) SetError(hasError bool) {
 	ff.hasError = hasError
+	if !hasError {
+		ff.errorText = ""
+	}
+}
+
+// SetErrorText показывает текст ошибки под полем. Пустая строка снимает ошибку.
+func (ff *FormField) SetErrorText(text string) {
+	ff.errorText = text
+	ff.hasError = text != ""
 }
 
 // HasError возвращает true если поле имеет ошибку
@@ -172,37 +184,34 @@ func (ff *FormField) IsVisible() bool {
 
 // Validate валидирует поле
 func (ff *FormField) Validate() bool {
-	value := ff.Value()
-
-	// Если поле не обязательное и пустое - валидно
-	if !ff.config.Required && value == "" {
+	if ff.config.FieldType == FieldTypeButton || !ff.visible {
+		ff.SetErrorText("")
 		return true
 	}
 
-	// Если поле обязательное и пустое - невалидно
+	value := strings.TrimSpace(ff.Value())
+
 	if ff.config.Required && value == "" {
-		ff.SetError(true)
+		ff.SetErrorText("Заполните поле")
 		return false
 	}
 
-	// Специальная валидация для порта
 	if ff.config.FieldType == FieldTypePort && value != "" {
-		// Проверяем что это число от 1 до 65535
 		port := 0
 		for _, r := range value {
 			if r < '0' || r > '9' {
-				ff.SetError(true)
+				ff.SetErrorText("Порт должен быть числом от 1 до 65535")
 				return false
 			}
 			port = port*10 + int(r-'0')
 		}
 		if port < 1 || port > 65535 {
-			ff.SetError(true)
+			ff.SetErrorText("Порт должен быть числом от 1 до 65535")
 			return false
 		}
 	}
 
-	ff.SetError(false)
+	ff.SetErrorText("")
 	return true
 }
 
@@ -258,10 +267,19 @@ func (ff *FormField) Render() string {
 		labelContent = labelStyle.Render(ff.config.Label + ":")
 	}
 
+	var row string
 	if labelContent == "" {
-		return fieldContent
+		row = fieldContent
+	} else {
+		row = lipgloss.JoinHorizontal(lipgloss.Center, labelContent, fieldContent)
 	}
-	return lipgloss.JoinHorizontal(lipgloss.Center, labelContent, fieldContent)
+	if ff.errorText == "" {
+		return row
+	}
+	errLine := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(styles.ColorError)).
+		Render(ff.errorText)
+	return lipgloss.JoinVertical(lipgloss.Left, row, errLine)
 }
 
 // GetTextInput возвращает textinput.Model для текстовых полей

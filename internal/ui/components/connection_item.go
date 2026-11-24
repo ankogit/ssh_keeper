@@ -38,11 +38,9 @@ func (ci ConnectionItem) Description() string {
 	// Тип аутентификации (только иконка)
 	var authIcon string
 	if ci.Connection.UseSSHKey {
-		authIcon = "[K]" // SSH ключ (конкретный или дефолтный)
-	} else if ci.Connection.HasPassword {
-		authIcon = "[P]" // Только пароль
+		authIcon = "[K]"
 	} else {
-		authIcon = "[?]" // Неизвестно
+		authIcon = "[P]"
 	}
 
 	return fmt.Sprintf("%s | %s | %s", hostInfo, userInfo, authIcon)
@@ -64,6 +62,15 @@ func (ci ConnectionItem) FilterValue() string {
 func (ci ConnectionItem) GetConnection() models.Connection {
 	return ci.Connection
 }
+
+// AddConnectionItem — постоянный последний пункт списка.
+type AddConnectionItem struct{}
+
+func (AddConnectionItem) Title() string { return "Добавить подключение" }
+
+func (AddConnectionItem) Description() string { return "Новый сервер" }
+
+func (AddConnectionItem) FilterValue() string { return "добавить подключение" }
 
 // RenderCustomItem создает кастомное отображение элемента
 func (ci ConnectionItem) RenderCustomItem() string {
@@ -87,12 +94,10 @@ func (ci ConnectionItem) RenderCustomItem() string {
 	user := userStyle.Render(fmt.Sprintf("пользователь: %s", ci.Connection.User))
 
 	var auth string
-	if ci.Connection.KeyPath != "" {
+	if ci.Connection.UseSSHKey {
 		auth = authStyle.Render("[K] ключ")
-	} else if ci.Connection.HasPassword {
-		auth = authStyle.Render("[P] пароль")
 	} else {
-		auth = authStyle.Render("[?] неизвестно")
+		auth = authStyle.Render("[P] пароль")
 	}
 
 	return fmt.Sprintf("%s %s | %s | %s", name, host, user, auth)

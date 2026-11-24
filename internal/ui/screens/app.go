@@ -58,15 +58,14 @@ func NewApp() *App {
 			// Пользователь хочет вводить пароль при каждом запуске
 			initialScreen = "welcome"
 		} else {
-			// Пользователь не хочет вводить пароль - переходим к главному меню
-			initialScreen = "main_menu"
+			initialScreen = "connections"
 		}
 	} else {
 		// Мастер-пароль не установлен - показываем экран приветствия
 		initialScreen = "welcome"
 	}
 
-	// Устанавливаем начальный экран
+	manager.SetMainMenu("connections")
 	manager.SetCurrentScreen(initialScreen)
 
 	return &App{

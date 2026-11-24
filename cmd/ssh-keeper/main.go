@@ -3,14 +3,13 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"ssh-keeper/internal/config"
+	"ssh-keeper/internal/mcp"
 	"ssh-keeper/internal/services"
+	"ssh-keeper/internal/ssh"
 	"ssh-keeper/internal/ui/screens"
 	"ssh-keeper/internal/version"
 
@@ -31,44 +30,12 @@ var (
 	appSignature string
 )
 
-// restoreTerminal восстанавливает терминал после SSH сессий
-func restoreTerminal() {
-	// Проверяем, что мы в интерактивном терминале
-	if !isTerminal(os.Stdin) {
+func main() {
+	if os.Getenv(ssh.AskpassEnv) == "1" {
+		runAskpass()
 		return
 	}
 
-	// Пробуем сначала tput reset, потом reset
-	cmd := exec.Command("tput", "reset")
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		// Fallback к обычному reset
-		cmd = exec.Command("reset")
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
-			// Игнорируем ошибки в неинтерактивных режимах
-			if isTerminal(os.Stdin) {
-				fmt.Printf("Warning: Failed to reset terminal: %v\n", err)
-			}
-		}
-	}
-}
-
-// isTerminal проверяет, является ли файл терминалом
-func isTerminal(file *os.File) bool {
-	stat, err := file.Stat()
-	if err != nil {
-		return false
-	}
-	// Проверяем что это символьное устройство И что это не pipe/redirect
-	return (stat.Mode()&os.ModeCharDevice) != 0 && file.Name() != "/dev/null"
-}
-
-func main() {
 	// Проверяем флаги командной строки
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
@@ -82,27 +49,23 @@ func main() {
 			fmt.Printf("\nOptions:\n")
 			fmt.Printf("  --version, -v    Show version information\n")
 			fmt.Printf("  --help, -h       Show this help message\n")
+			fmt.Printf("  mcp              Run the local MCP server on stdin/stdout\n")
+			return
+		case "mcp":
+			if err := initializeServices(); err != nil {
+				fmt.Fprintf(os.Stderr, "Error initializing services: %v\n", err)
+				os.Exit(1)
+			}
+			if err := mcp.Serve(); err != nil {
+				fmt.Fprintf(os.Stderr, "MCP server: %v\n", err)
+				os.Exit(1)
+			}
 			return
 		}
 	}
 
-	// ПРИНУДИТЕЛЬНО восстанавливаем терминал через reset в самом начале
-	restoreTerminal()
-
 	// Set up terminal environment
 	lipgloss.SetColorProfile(termenv.ColorProfile())
-
-	// Убеждаемся, что терминал восстановится при выходе
-	defer restoreTerminal()
-
-	// Set up signal handler to restore terminal on exit
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-c
-		restoreTerminal()
-		os.Exit(0)
-	}()
 
 	// Initialize services
 	if err := initializeServices(); err != nil {
@@ -119,14 +82,23 @@ func main() {
 	// Run the program
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running application: %v\n", err)
-		restoreTerminal()
 		os.Exit(1)
 	}
+}
 
-	// Восстанавливаем терминал после нормального завершения
-	restoreTerminal()
-
-	// Terminal will be restored by signal handler if needed
+// runAskpass печатает сохранённый пароль для OpenSSH и сразу завершается.
+func runAskpass() {
+	data, err := os.ReadFile(os.Getenv(ssh.PassFileEnv))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "askpass: %v\n", err)
+		os.Exit(1)
+	}
+	if len(data) == 0 || data[len(data)-1] != '\n' {
+		data = append(data, '\n')
+	}
+	if _, err := os.Stdout.Write(data); err != nil {
+		os.Exit(1)
+	}
 }
 
 // initializeServices initializes all application services
@@ -172,7 +144,7 @@ func initializeServices() error {
 	// If master password is already initialized with signature, refresh the encryption key
 	if services.IsMasterPasswordInitializedWithSignature() {
 		if err := encryptionService.RefreshKey(); err != nil {
-			fmt.Printf("Warning: Failed to refresh encryption key: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Warning: Failed to refresh encryption key: %v\n", err)
 		}
 	}
 

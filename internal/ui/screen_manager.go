@@ -170,30 +170,16 @@ func (sm *ScreenManager) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			sm.NavigateTo(msg.ScreenName)
 		}
-		// Передаем размеры экрана новому экрану, если они есть
-		if sm.width > 0 && sm.height > 0 {
-			if newScreen := sm.GetCurrentScreen(); newScreen != nil {
-				newScreen.Update(tea.WindowSizeMsg{Width: sm.width, Height: sm.height})
-			}
-		}
-		// Передаем NavigateToMsg новому экрану для обработки
-		if newScreen := sm.GetCurrentScreen(); newScreen != nil {
-			newScreen.Update(msg)
-		}
-		return sm, nil
+		return sm, sm.activateCurrent(msg)
 	case GoBackMsg:
 		sm.GoBack()
-		// Передаем размеры экрана новому экрану, если они есть
-		if sm.width > 0 && sm.height > 0 {
-			if newScreen := sm.GetCurrentScreen(); newScreen != nil {
-				newScreen.Update(tea.WindowSizeMsg{Width: sm.width, Height: sm.height})
-			}
+		return sm, sm.activateCurrent(msg)
+	case HomeMsg:
+		sm.history = nil
+		if _, exists := sm.screens[msg.ScreenName]; exists {
+			sm.current = msg.ScreenName
 		}
-		// Передаем GoBackMsg новому экрану для обработки
-		if newScreen := sm.GetCurrentScreen(); newScreen != nil {
-			newScreen.Update(msg)
-		}
-		return sm, nil
+		return sm, sm.activateCurrent(msg)
 	}
 
 	// Передаем сообщение текущему экрану
@@ -214,6 +200,29 @@ func (sm *ScreenManager) View() string {
 	return currentScreen.View()
 }
 
+// activateCurrent передаёт новому экрану размер, сообщение навигации и запускает Init.
+func (sm *ScreenManager) activateCurrent(msg tea.Msg) tea.Cmd {
+	screen := sm.GetCurrentScreen()
+	if screen == nil {
+		return nil
+	}
+	if sm.width > 0 && sm.height > 0 {
+		updated, _ := screen.Update(tea.WindowSizeMsg{Width: sm.width, Height: sm.height})
+		if next, ok := updated.(Screen); ok && next != nil {
+			sm.screens[sm.current] = next
+			screen = next
+		}
+	}
+	if msg != nil {
+		updated, _ := screen.Update(msg)
+		if next, ok := updated.(Screen); ok && next != nil {
+			sm.screens[sm.current] = next
+			screen = next
+		}
+	}
+	return screen.Init()
+}
+
 // Init инициализирует менеджер экранов
 func (sm *ScreenManager) Init() tea.Cmd {
 	currentScreen := sm.GetCurrentScreen()
@@ -231,6 +240,11 @@ type NavigateToMsg struct {
 
 // GoBackMsg сообщение для возврата к предыдущему экрану
 type GoBackMsg struct{}
+
+// HomeMsg открывает экран как стартовый и очищает историю.
+type HomeMsg struct {
+	ScreenName string
+}
 
 // NavigateToCmd создает команду для навигации к экрану
 func NavigateToCmd(screenName string) tea.Cmd {

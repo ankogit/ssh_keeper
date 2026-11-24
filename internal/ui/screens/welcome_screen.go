@@ -352,7 +352,7 @@ func (ws *WelcomeScreen) handleFirstTimeSetup() tea.Cmd {
 			return tea.Msg(nil)
 		},
 		func() tea.Msg {
-			return ui.NavigateToMsg{ScreenName: "main_menu"}
+			return ui.HomeMsg{ScreenName: "connections"}
 		},
 	)
 }
@@ -393,7 +393,7 @@ func (ws *WelcomeScreen) handleExistingSetup() tea.Cmd {
 			return tea.Msg(nil)
 		},
 		func() tea.Msg {
-			return ui.NavigateToMsg{ScreenName: "main_menu"}
+			return ui.HomeMsg{ScreenName: "connections"}
 		},
 	)
 }

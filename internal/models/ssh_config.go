@@ -59,12 +59,18 @@ func NewSSHConfig() *SSHConfig {
 	}
 }
 
-// AddHost adds a new host configuration
+// AddHost adds a new host configuration.
+// Existing timestamps are kept so loading a file does not reset them.
 func (sc *SSHConfig) AddHost(host SSHConfigHost) {
-	host.CreatedAt = time.Now()
-	host.UpdatedAt = time.Now()
+	now := time.Now()
+	if host.CreatedAt.IsZero() {
+		host.CreatedAt = now
+	}
+	if host.UpdatedAt.IsZero() {
+		host.UpdatedAt = now
+	}
 	sc.Hosts = append(sc.Hosts, host)
-	sc.UpdatedAt = time.Now()
+	sc.UpdatedAt = now
 }
 
 // FindHostByID finds a host by SSH Keeper ID
