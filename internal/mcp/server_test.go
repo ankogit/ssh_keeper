@@ -36,17 +36,31 @@ func TestDispatchInitializeAndTools(t *testing.T) {
 	}
 }
 
-func TestFrameRoundTrip(t *testing.T) {
-	var buf bytes.Buffer
+func TestNewlineDelimitedRoundTrip(t *testing.T) {
 	payload := []byte(`{"jsonrpc":"2.0","id":1,"method":"ping"}`)
-	if err := writeFrame(&buf, payload); err != nil {
+	var buf bytes.Buffer
+	if err := writeMessage(&buf, payload); err != nil {
 		t.Fatal(err)
 	}
-	got, err := readFrame(bufio.NewReader(&buf))
+	got, err := readMessage(bufio.NewReader(&buf))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if string(got) != string(payload) {
-		t.Fatalf("кадр %s", got)
+		t.Fatalf("сообщение %s", got)
+	}
+}
+
+func TestContentLengthStillSupported(t *testing.T) {
+	payload := []byte(`{"jsonrpc":"2.0","id":1,"method":"ping"}`)
+	var raw bytes.Buffer
+	raw.WriteString("Content-Length: 40\r\n\r\n")
+	raw.Write(payload)
+	got, err := readMessage(bufio.NewReader(&raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != string(payload) {
+		t.Fatalf("сообщение %s", got)
 	}
 }

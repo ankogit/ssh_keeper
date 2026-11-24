@@ -337,7 +337,7 @@ func (cs *ConnectionsScreen) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		cs.askDelete()
 		return cs, nil
-	case "`":
+	case "`", "ё", "~":
 		return cs, ui.NavigateToCmd("settings")
 	case "/":
 		cs.searchActive = true
@@ -398,7 +398,7 @@ func (cs *ConnectionsScreen) instructions() string {
 	case cs.searchActive:
 		return "Введите запрос • Enter — закрыть поиск • Esc — сбросить"
 	default:
-		return "/ поиск • ↑/↓ выбор • Enter открыть • e править • d удалить • ` настройки • Esc выход"
+		return "/ поиск • ↑/↓ выбор • Enter открыть • e править • d удалить • `/ё настройки • Esc выход"
 	}
 }
 

@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,21 +23,25 @@ type Options struct {
 }
 
 // Serve читает MCP-сообщения из stdin и отвечает в stdout.
+// Транспорт — newline-delimited JSON (спецификация MCP stdio).
 func Serve(opts Options) error {
 	reader := bufio.NewReader(os.Stdin)
 	for {
-		body, err := readFrame(reader)
+		body, err := readMessage(reader)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return nil
 			}
 			return err
 		}
+		if len(bytes.TrimSpace(body)) == 0 {
+			continue
+		}
 		response := dispatch(body, opts)
 		if response == nil {
 			continue
 		}
-		if err := writeFrame(os.Stdout, response); err != nil {
+		if err := writeMessage(os.Stdout, response); err != nil {
 			return err
 		}
 	}
@@ -261,43 +266,52 @@ func mustJSON(value any) []byte {
 	return body
 }
 
-func readFrame(reader *bufio.Reader) ([]byte, error) {
-	length := -1
+// readMessage читает одно MCP-сообщение.
+// Поддерживает newline-delimited JSON (стандарт MCP) и Content-Length (совместимость).
+func readMessage(reader *bufio.Reader) ([]byte, error) {
 	for {
-		line, err := reader.ReadString('\n')
+		line, err := reader.ReadBytes('\n')
 		if err != nil {
 			return nil, err
 		}
-		line = strings.TrimRight(line, "\r\n")
-		if line == "" {
-			break
+		trimmed := bytes.TrimSpace(line)
+		if len(trimmed) == 0 {
+			continue
 		}
-		if len(line) >= 15 && strings.EqualFold(line[:15], "content-length:") {
-			var n int
-			if _, err := fmt.Sscanf(line[15:], "%d", &n); err == nil {
-				length = n
+
+		lower := strings.ToLower(string(trimmed))
+		if strings.HasPrefix(lower, "content-length:") {
+			var length int
+			if _, err := fmt.Sscanf(string(trimmed)[len("content-length:"):], "%d", &length); err != nil {
+				return nil, fmt.Errorf("некорректный Content-Length")
 			}
+			for {
+				headerLine, err := reader.ReadBytes('\n')
+				if err != nil {
+					return nil, err
+				}
+				if len(bytes.TrimSpace(headerLine)) == 0 {
+					break
+				}
+			}
+			body := make([]byte, length)
+			if _, err := io.ReadFull(reader, body); err != nil {
+				return nil, err
+			}
+			return body, nil
 		}
+
+		return trimmed, nil
 	}
-	if length < 0 {
-		return nil, fmt.Errorf("в сообщении нет Content-Length")
-	}
-	body := make([]byte, length)
-	if _, err := io.ReadFull(reader, body); err != nil {
-		return nil, err
-	}
-	return body, nil
 }
 
-func writeFrame(writer io.Writer, body []byte) error {
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))
-	if _, err := io.WriteString(writer, header); err != nil {
-		return err
-	}
+func writeMessage(writer io.Writer, body []byte) error {
 	if _, err := writer.Write(body); err != nil {
 		return err
 	}
-	// На пайпе Sync может вернуть EINVAL — это не ошибка протокола.
+	if _, err := writer.Write([]byte("\n")); err != nil {
+		return err
+	}
 	if f, ok := writer.(*os.File); ok {
 		_ = f.Sync()
 	}

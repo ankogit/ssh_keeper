@@ -155,10 +155,10 @@ func NewSettingsScreen() *SettingsScreen {
 			},
 			{
 				Title:       "Назад",
-				Description: "Вернуться к главному меню",
+				Description: "Вернуться к списку подключений",
 				Shortcut:    "esc",
 				Action: func() tea.Cmd {
-					return ui.GoBackCmd()
+					return ui.HomeCmd("connections")
 				},
 			},
 		},
@@ -254,8 +254,8 @@ func (ss *SettingsScreen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "ctrl+q":
 			return ss, tea.Quit
-		case "esc", "`":
-			return ss, ui.GoBackCmd()
+		case "esc", "`", "ё", "~":
+			return ss, ui.HomeCmd("connections")
 		case "enter":
 			// Обрабатываем выбор элемента
 			selectedItem := ss.list.SelectedItem()

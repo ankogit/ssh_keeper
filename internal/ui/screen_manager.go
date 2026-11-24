@@ -266,3 +266,10 @@ func GoBackCmd() tea.Cmd {
 		return GoBackMsg{}
 	}
 }
+
+// HomeCmd открывает экран как домашний и очищает историю.
+func HomeCmd(screenName string) tea.Cmd {
+	return func() tea.Msg {
+		return HomeMsg{ScreenName: screenName}
+	}
+}
