@@ -15,8 +15,14 @@ import (
 	"ssh-keeper/internal/version"
 )
 
+// Options настраивает MCP-сервер.
+type Options struct {
+	// EnsureReady готовит сервисы перед tools/call. Handshake на него не ждёт.
+	EnsureReady func() error
+}
+
 // Serve читает MCP-сообщения из stdin и отвечает в stdout.
-func Serve() error {
+func Serve(opts Options) error {
 	reader := bufio.NewReader(os.Stdin)
 	for {
 		body, err := readFrame(reader)
@@ -26,7 +32,7 @@ func Serve() error {
 			}
 			return err
 		}
-		response := dispatch(body)
+		response := dispatch(body, opts)
 		if response == nil {
 			continue
 		}
@@ -48,7 +54,7 @@ type rpcError struct {
 	Message string `json:"message"`
 }
 
-func dispatch(body []byte) []byte {
+func dispatch(body []byte, opts Options) []byte {
 	var msg rpcMessage
 	if err := json.Unmarshal(body, &msg); err != nil {
 		return mustJSON(errorResponse(nil, -32700, "parse error"))
@@ -65,6 +71,11 @@ func dispatch(body []byte) []byte {
 	case "tools/list":
 		return mustJSON(resultResponse(msg.ID, map[string]any{"tools": toolDefinitions()}))
 	case "tools/call":
+		if opts.EnsureReady != nil {
+			if err := opts.EnsureReady(); err != nil {
+				return mustJSON(resultResponse(msg.ID, toolError("инициализация: "+err.Error())))
+			}
+		}
 		return mustJSON(resultResponse(msg.ID, callTool(msg.Params)))
 	default:
 		return mustJSON(errorResponse(msg.ID, -32601, "method not found"))
@@ -279,9 +290,16 @@ func readFrame(reader *bufio.Reader) ([]byte, error) {
 }
 
 func writeFrame(writer io.Writer, body []byte) error {
-	if _, err := fmt.Fprintf(writer, "Content-Length: %d\r\n\r\n", len(body)); err != nil {
+	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(body))
+	if _, err := io.WriteString(writer, header); err != nil {
 		return err
 	}
-	_, err := writer.Write(body)
-	return err
+	if _, err := writer.Write(body); err != nil {
+		return err
+	}
+	// На пайпе Sync может вернуть EINVAL — это не ошибка протокола.
+	if f, ok := writer.(*os.File); ok {
+		_ = f.Sync()
+	}
+	return nil
 }

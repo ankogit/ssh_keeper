@@ -9,7 +9,7 @@ import (
 )
 
 func TestDispatchInitializeAndTools(t *testing.T) {
-	initBody := dispatch([]byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}`))
+	initBody := dispatch([]byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05"}}`), Options{})
 	var initMsg struct {
 		Result struct {
 			ProtocolVersion string `json:"protocolVersion"`
@@ -26,12 +26,12 @@ func TestDispatchInitializeAndTools(t *testing.T) {
 		t.Fatalf("нет инструкции: %s", initMsg.Result.Instructions)
 	}
 
-	toolsBody := dispatch([]byte(`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`))
+	toolsBody := dispatch([]byte(`{"jsonrpc":"2.0","id":2,"method":"tools/list"}`), Options{})
 	if !strings.Contains(string(toolsBody), `"connect"`) || !strings.Contains(string(toolsBody), `"list_connections"`) {
 		t.Fatalf("список инструментов: %s", toolsBody)
 	}
 
-	if dispatch([]byte(`{"jsonrpc":"2.0","method":"notifications/initialized"}`)) != nil {
+	if dispatch([]byte(`{"jsonrpc":"2.0","method":"notifications/initialized"}`), Options{}) != nil {
 		t.Fatal("на уведомление не нужен ответ")
 	}
 }

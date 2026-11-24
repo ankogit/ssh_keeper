@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"ssh-keeper/internal/config"
 	"ssh-keeper/internal/mcp"
@@ -52,11 +53,9 @@ func main() {
 			fmt.Printf("  mcp              Run the local MCP server on stdin/stdout\n")
 			return
 		case "mcp":
-			if err := initializeServices(); err != nil {
-				fmt.Fprintf(os.Stderr, "Error initializing services: %v\n", err)
-				os.Exit(1)
-			}
-			if err := mcp.Serve(); err != nil {
+			// Сначала поднимаем stdio-протокол: иначе Cursor убивает процесс,
+			// пока keychain/сервисы ещё инициализируются.
+			if err := mcp.Serve(mcp.Options{EnsureReady: ensureMCPServices}); err != nil {
 				fmt.Fprintf(os.Stderr, "MCP server: %v\n", err)
 				os.Exit(1)
 			}
@@ -176,6 +175,50 @@ func initializeServices() error {
 	// 	}()
 	// }
 
+	return nil
+}
+
+// ensureMCPServices лениво готовит сервисы для tool-вызовов.
+// Keychain на macOS из Cursor может зависнуть на диалоге доступа — поэтому
+// ждём ограниченное время и продолжаем без расшифровки паролей.
+func ensureMCPServices() error {
+	if services.GetGlobalConnectionService() != nil {
+		return nil
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- initializeServices()
+	}()
+
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(3 * time.Second):
+		fmt.Fprintf(os.Stderr, "MCP: keychain/init timed out, loading connections without secrets\n")
+		return initializeMCPWithoutKeyring()
+	}
+}
+
+func initializeMCPWithoutKeyring() error {
+	cfg, err := config.Init()
+	if err != nil {
+		return err
+	}
+	configPath := cfg.GetConfigPath()
+	if strings.HasPrefix(configPath, "~/") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+		configPath = filepath.Join(homeDir, configPath[2:])
+	}
+	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
+		return err
+	}
+
+	connectionService = services.NewConnectionServiceWithoutSecrets(configPath)
+	services.SetGlobalConnectionService(connectionService)
 	return nil
 }
 

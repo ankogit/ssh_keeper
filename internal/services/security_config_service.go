@@ -2,6 +2,8 @@ package services
 
 import (
 	"fmt"
+	"os"
+
 	"ssh-keeper/internal/config"
 )
 
@@ -15,7 +17,7 @@ func NewSecurityConfigService() *SecurityConfigService {
 	// Инициализируем конфигурацию
 	cfg, err := config.Init()
 	if err != nil {
-		fmt.Printf("Warning: Failed to load config: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Warning: Failed to load config: %v\n", err)
 		// Создаем минимальную конфигурацию для fallback
 		cfg = &config.Config{}
 	}

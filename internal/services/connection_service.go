@@ -37,6 +37,23 @@ func NewConnectionService(configPath string) *ConnectionService {
 	return cs
 }
 
+// NewConnectionServiceWithoutSecrets loads connections without touching the OS keychain.
+// Passwords stay encrypted/uncleared — enough for list_connections and key-based connect.
+func NewConnectionServiceWithoutSecrets(configPath string) *ConnectionService {
+	cs := &ConnectionService{
+		connections:      make([]models.Connection, 0),
+		sshConfigService: NewSSHConfigService(configPath),
+		configPath:       configPath,
+	}
+	if err := cs.LoadConnectionsFromFile(); err != nil {
+		cs.connections = make([]models.Connection, 0)
+	}
+	for i := range cs.connections {
+		cs.connections[i].Password = ""
+	}
+	return cs
+}
+
 // LoadConnectionsFromFile loads connections from SSH config file
 func (cs *ConnectionService) LoadConnectionsFromFile() error {
 	config, err := cs.sshConfigService.LoadConfig()
@@ -46,8 +63,10 @@ func (cs *ConnectionService) LoadConnectionsFromFile() error {
 
 	connections := cs.sshConfigService.ConvertSSHConfigToConnections(config)
 
-	// Decrypt passwords only if encryption service is initialized
-	if cs.encryptionService.IsInitialized() {
+	// Decrypt passwords only if encryption/keyring is available.
+	// IsInitialized() ходит в keychain и из Cursor может зависнуть — поэтому для MCP
+	// создаём сервис без encryptionService.
+	if cs.encryptionService != nil && cs.encryptionService.IsInitialized() {
 		for i := range connections {
 			if connections[i].HasPassword && connections[i].Password != "" {
 				// Проверяем, является ли пароль зашифрованным (должен быть длинным и содержать base64 символы)
@@ -73,7 +92,7 @@ func (cs *ConnectionService) SaveConnectionsToFile() error {
 	copy(connectionsCopy, cs.connections)
 
 	// Encrypt passwords before saving (only if encryption service is initialized)
-	if cs.encryptionService.IsInitialized() {
+	if cs.encryptionService != nil && cs.encryptionService.IsInitialized() {
 		for i := range connectionsCopy {
 			if connectionsCopy[i].HasPassword && connectionsCopy[i].Password != "" && len(connectionsCopy[i].Password) > 0 {
 				encryptedPassword, err := cs.encryptionService.EncryptPassword(connectionsCopy[i].Password)

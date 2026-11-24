@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "ssh-keeper": {
-      "command": "go",
-      "args": ["run", "./cmd/ssh-keeper", "mcp"]
+      "command": "/Users/anko/work/ssh_keeper/build/ssh-keeper",
+      "args": ["mcp"]
     }
   }
 }
